@@ -9,7 +9,7 @@ use messages::Message;
 pub async fn run() {
     let (tx, mut rx): (Sender<Message>, Receiver<Message>) = mpsc::channel(32);
 
-    let tx_ethereum_events = tx.clone();
+    let tx_ithil_feed = tx.clone();
     let tx_coinbase_feed = tx.clone();
 
     // 0. Set up Coinbase feed to get real time prices.
@@ -23,10 +23,10 @@ pub async fn run() {
         println!("{:?}", message);
     }
 
-    // 1. Set up Ethereum events feed from Ithil smart contract.
+    // 1. Set up Ithil Ethereum events feed from Ithil smart contract.
     //    This feed should be used to keep track of open positions and their state.
     tokio::spawn(async move {
-        feeds::ithil::run(tx_ethereum_events).await.unwrap();
+        feeds::ithil::run(tx_ithil_feed).await.unwrap();
     }).await.unwrap();
 
     // 3. Read all incoming messages from the Ethereum network and price feeds from exchanges,
