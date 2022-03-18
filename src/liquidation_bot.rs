@@ -18,7 +18,8 @@ pub async fn run() {
         feeds::coinbase::run(tx_coinbase_feed).await;
     });
 
-    // Read all Coinbase messages for debugging
+    // Read all Coinbase messages for debugging.
+    // XXX dead code below this block!
     while let Some(message) = rx.recv().await {
         println!("{:?}", message);
     }
@@ -31,4 +32,8 @@ pub async fn run() {
 
     // 2. Read all incoming messages from the Ethereum network and price feeds from exchanges,
     //    keep an updated view on open positions and real time prices, trigger liquidation logic.
+    while let Some(message) = rx.recv().await {
+        // TODO implement position state, price state, liquidation logic.
+        println!("{:?}", message);
+    }
 }
