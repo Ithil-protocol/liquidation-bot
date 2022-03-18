@@ -5,7 +5,7 @@ use web3::ethabi::{
     ParamType,
     RawLog,
 };
-use web3::futures::{future, StreamExt};
+use web3::futures::StreamExt;
 use web3::types::{
     FilterBuilder,
     H160,
