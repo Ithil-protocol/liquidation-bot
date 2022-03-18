@@ -1,5 +1,4 @@
 mod feeds;
-mod events;
 mod liquidation_bot;
 mod messages;
 

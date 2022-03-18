@@ -2,7 +2,6 @@ use tokio::sync::mpsc;
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::events;
 use crate::feeds;
 use crate::messages;
 use messages::Message;
@@ -27,7 +26,7 @@ pub async fn run() {
     // 1. Set up Ethereum events feed from Ithil smart contract.
     //    This feed should be used to keep track of open positions and their state.
     tokio::spawn(async move {
-        events::ithil::run(tx_ethereum_events).await.unwrap();
+        feeds::ithil::run(tx_ethereum_events).await.unwrap();
     }).await.unwrap();
 
     // 3. Read all incoming messages from the Ethereum network and price feeds from exchanges,
