@@ -1,0 +1,18 @@
+[package]
+name = "liquidation-bot"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "*"
+futures = "*"
+futures-util = "*"
+serde = { version = "1.0.124", features = ["derive"] }
+serde-aux = "*"
+serde_json = "*"
+tokio = { version = "1.5", features = ["macros", "rt-multi-thread"] }
+tokio-tungstenite = { version = "*", features = ["tls"] }
+url = "*"
+web3 = "*"
