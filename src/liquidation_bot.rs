@@ -29,6 +29,6 @@ pub async fn run() {
         feeds::ithil::run(tx_ithil_feed).await.unwrap();
     }).await.unwrap();
 
-    // 3. Read all incoming messages from the Ethereum network and price feeds from exchanges,
+    // 2. Read all incoming messages from the Ethereum network and price feeds from exchanges,
     //    keep an updated view on open positions and real time prices, trigger liquidation logic.
 }
