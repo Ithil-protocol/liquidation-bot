@@ -3,7 +3,7 @@ use web3::ethabi::{
     Event,
     EventParam,
     ParamType,
-    RawLog,
+    RawLog, LogParam,
 };
 use web3::futures::StreamExt;
 use web3::types::{
@@ -119,6 +119,39 @@ fn make_position_was_liquidated_event() -> Event {
     return position_was_liquidated_event;
 }
 
+fn parse_position_was_opened_event(log_params: &Vec<LogParam>) -> messages::Event {
+    return messages::Event::PositionWasOpened(
+        PositionWasOpened {
+            id: log_params[0].value.clone().into_uint().unwrap(),
+            owner: log_params[1].value.clone().into_address().unwrap(),
+            owed_token: log_params[2].value.clone().into_address().unwrap(),
+            held_token: log_params[3].value.clone().into_address().unwrap(),
+            collateral_token: log_params[4].value.clone().into_address().unwrap(),
+            collateral: log_params[5].value.clone().into_uint().unwrap(),
+            principal: log_params[6].value.clone().into_uint().unwrap(),
+            allowance: log_params[7].value.clone().into_uint().unwrap(),
+            fees: log_params[8].value.clone().into_uint().unwrap(),
+            created_at: log_params[9].value.clone().into_uint().unwrap(),
+        }
+    );
+}
+
+fn parse_position_was_closed_event(log_params: &Vec<LogParam>) -> messages::Event {
+    return messages::Event::PositionWasClosed(
+        PositionWasClosed {
+            id: log_params[0].value.clone().into_uint().unwrap(),
+        }
+    );
+}
+
+fn parse_position_was_liquidated_event(log_params: &Vec<LogParam>) -> messages::Event {
+    return messages::Event::PositionWasLiquidated(
+        PositionWasLiquidated {
+            id: log_params[0].value.clone().into_uint().unwrap(),
+        }
+    );
+}
+
 pub async fn run(message_queue: tokio::sync::mpsc::Sender<Message>) -> web3::Result {
     let liquidator_address: [u8; 20] = [0x90, 0xb8, 0x80, 0x04, 0x68, 0xb3, 0xdd, 0x06, 0xf8, 0x24, 0xa5, 0x65, 0x89, 0xdE, 0xda, 0x0A, 0x0b, 0x64, 0x38, 0x68];
 
@@ -161,35 +194,31 @@ pub async fn run(message_queue: tokio::sync::mpsc::Sender<Message>) -> web3::Res
                     data: log.data.0
                 };
                 if let Some(log_type) = log.log_type {
-                    match log_type.as_str() {
+                    let parsed_event = match log_type.as_str() {
                         "PositionWasOpened" => {
-                            let event_params = position_was_opened_event.parse_log(raw_log).unwrap().params;
-                            println!("{:?}", event_params);
-                            let message = Message::Event(messages::Event::PositionWasOpened(
-                                PositionWasOpened {
-                                    id: event_params[0].value.clone().into_uint().unwrap(),
-                                    owner: event_params[1].value.clone().into_address().unwrap(),
-                                    owed_token: event_params[2].value.clone().into_address().unwrap(),
-                                    held_token: event_params[3].value.clone().into_address().unwrap(),
-                                    collateral_token: event_params[4].value.clone().into_address().unwrap(),
-                                    collateral: event_params[5].value.clone().into_uint().unwrap(),
-                                    principal: event_params[6].value.clone().into_uint().unwrap(),
-                                    allowance: event_params[7].value.clone().into_uint().unwrap(),
-                                    fees: event_params[8].value.clone().into_uint().unwrap(),
-                                    created_at: event_params[9].value.clone().into_uint().unwrap(),
-                                }
-                            ));
-                            message_queue.send(message).await;
+                            let log_params = position_was_opened_event.parse_log(raw_log).unwrap().params;
+                            let position_was_opened = parse_position_was_opened_event(&log_params);
+                            Some(position_was_opened)
                         },
                         "PositionWasClosed" => {
-                            let event_params = position_was_closed_event.parse_log(raw_log).unwrap().params;
-                            println!("{:?}", event_params);
+                            let log_params = position_was_closed_event.parse_log(raw_log).unwrap().params;
+                            let position_was_closed = parse_position_was_closed_event(&log_params);
+                            Some(position_was_closed)
                         },
                         "PositionWasLiquidated" => {
-                            let event_params = position_was_liquidated_event.parse_log(raw_log).unwrap().params;
-                            println!("{:?}", event_params);
+                            let log_params = position_was_liquidated_event.parse_log(raw_log).unwrap().params;
+                            let position_was_liquidated = parse_position_was_liquidated_event(&log_params);
+                            Some(position_was_liquidated)
                         },
-                        _ => (),
+                        _ => {
+                            // TODO Log unhandled event type
+                            None
+                        },
+                    };
+
+                    if let Some(event) = parsed_event {
+                        let message = Message::Event(event);
+                        let _ = message_queue.send(message);
                     }
                 }
             }

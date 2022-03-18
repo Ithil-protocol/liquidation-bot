@@ -27,8 +27,8 @@ pub struct PositionWasLiquidated {
 #[derive(Debug)]
 pub enum Event {
     PositionWasOpened(PositionWasOpened),
-    PositionWasClosedEvent(PositionWasClosed),
-    PositionWasLiquidatedEvent(PositionWasLiquidated),
+    PositionWasClosed(PositionWasClosed),
+    PositionWasLiquidated(PositionWasLiquidated),
 }
 
 #[derive(Debug)]
