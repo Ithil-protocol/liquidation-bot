@@ -1,6 +1,7 @@
 mod feeds;
 mod liquidation_bot;
-mod messages;
+mod liquidator;
+mod events;
 
 #[tokio::main]
 async fn main() {

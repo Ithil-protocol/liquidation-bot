@@ -1,13 +1,17 @@
 use tokio::sync::mpsc;
-
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{
+    Receiver,
+    Sender,
+};
 
 use crate::feeds;
-use crate::messages;
-use messages::Message;
+use crate::liquidator;
+use liquidator::Liquidator;
+use crate::events;
+use events::Event;
 
 pub async fn run() {
-    let (tx, mut rx): (Sender<Message>, Receiver<Message>) = mpsc::channel(32);
+    let (tx, mut rx): (Sender<Event>, Receiver<Event>) = mpsc::channel(32);
 
     let tx_ithil_feed = tx.clone();
     let tx_coinbase_feed = tx.clone();
@@ -20,8 +24,8 @@ pub async fn run() {
 
     // Read all Coinbase messages for debugging.
     // XXX dead code below this block!
-    while let Some(message) = rx.recv().await {
-        println!("{:?}", message);
+    while let Some(event) = rx.recv().await {
+        println!("{:?}", event);
     }
 
     // 1. Set up Ithil Ethereum events feed from Ithil smart contract.
@@ -32,8 +36,12 @@ pub async fn run() {
 
     // 2. Read all incoming messages from the Ethereum network and price feeds from exchanges,
     //    keep an updated view on open positions and real time prices, trigger liquidation logic.
-    while let Some(message) = rx.recv().await {
+    let mut liquidator = Liquidator::new();
+    while let Some(event) = rx.recv().await {
         // TODO implement position state, price state, liquidation logic.
-        println!("{:?}", message);
+        println!("{:?}", event);
+        let liquidations = liquidator.run(event);
+        println!("{:?}", liquidations);
+        // TODO execute liquidations
     }
 }

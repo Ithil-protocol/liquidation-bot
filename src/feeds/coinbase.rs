@@ -6,12 +6,11 @@ use serde_json::Value;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol;
 
-use crate::messages;
-use messages::{
+use crate::events;
+use events::{
     Currency,
+    Event,
     Exchange,
-    FeedMessage,
-    Message,
     Pair,
 };
 
@@ -64,7 +63,7 @@ struct Heartbeat {
     time: String,
 }
 
-pub async fn run(message_queue: tokio::sync::mpsc::Sender<Message>) {
+pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
     let url = url::Url::parse(URL).unwrap();
 
     let (ws_stream, _) = connect_async(url).await.unwrap();
@@ -116,13 +115,13 @@ pub async fn run(message_queue: tokio::sync::mpsc::Sender<Message>) {
                         "ticker" => {
                             let coinbase_ticker: Ticker = serde_json::from_str(&payload).unwrap();
                             println!("TICKER => {:?}", coinbase_ticker);
-                            let feed_ticker = FeedMessage::Ticker{
+                            let ticker = events::Ticker {
                                 exchange: Exchange::Coinbase,
                                 pair: Pair(Currency::WETH, Currency::USD),
                                 price: 12.3,
                             };
-                            let message = Message::FeedMessage(feed_ticker);
-                            message_queue.send(message).await;
+                            let event = Event::Ticker(ticker);
+                            events_queue.send(event).await;
                         },
                         _ => (),
                     }

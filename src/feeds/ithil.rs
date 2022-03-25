@@ -11,12 +11,11 @@ use web3::types::{
     H160,
 };
 
-use crate::messages;
-use messages::{
+use crate::events;
+use events::{
     PositionWasClosed,
     PositionWasLiquidated,
     PositionWasOpened,
-    Message,
 };
 
 
@@ -119,8 +118,8 @@ fn make_position_was_liquidated_event() -> Event {
     return position_was_liquidated_event;
 }
 
-fn parse_position_was_opened_event(log_params: &Vec<LogParam>) -> messages::Event {
-    return messages::Event::PositionWasOpened(
+fn parse_position_was_opened_event(log_params: &Vec<LogParam>) -> events::Event {
+    return events::Event::PositionWasOpened(
         PositionWasOpened {
             id: log_params[0].value.clone().into_uint().unwrap(),
             owner: log_params[1].value.clone().into_address().unwrap(),
@@ -136,23 +135,23 @@ fn parse_position_was_opened_event(log_params: &Vec<LogParam>) -> messages::Even
     );
 }
 
-fn parse_position_was_closed_event(log_params: &Vec<LogParam>) -> messages::Event {
-    return messages::Event::PositionWasClosed(
+fn parse_position_was_closed_event(log_params: &Vec<LogParam>) -> events::Event {
+    return events::Event::PositionWasClosed(
         PositionWasClosed {
             id: log_params[0].value.clone().into_uint().unwrap(),
         }
     );
 }
 
-fn parse_position_was_liquidated_event(log_params: &Vec<LogParam>) -> messages::Event {
-    return messages::Event::PositionWasLiquidated(
+fn parse_position_was_liquidated_event(log_params: &Vec<LogParam>) -> events::Event {
+    return events::Event::PositionWasLiquidated(
         PositionWasLiquidated {
             id: log_params[0].value.clone().into_uint().unwrap(),
         }
     );
 }
 
-pub async fn run(message_queue: tokio::sync::mpsc::Sender<Message>) -> web3::Result {
+pub async fn run(events_queue: tokio::sync::mpsc::Sender<events::Event>) -> web3::Result {
     let liquidator_address: [u8; 20] = [0x90, 0xb8, 0x80, 0x04, 0x68, 0xb3, 0xdd, 0x06, 0xf8, 0x24, 0xa5, 0x65, 0x89, 0xdE, 0xda, 0x0A, 0x0b, 0x64, 0x38, 0x68];
 
     println!("Connecting ...");
@@ -217,8 +216,7 @@ pub async fn run(message_queue: tokio::sync::mpsc::Sender<Message>) -> web3::Res
                     };
 
                     if let Some(event) = parsed_event {
-                        let message = Message::Event(event);
-                        let _ = message_queue.send(message);
+                        let _ = events_queue.send(event);
                     }
                 }
             }
