@@ -1,4 +1,4 @@
-use web3::{types::U256, ethabi::Address};
+use web3::{ethabi::Address, types::U256};
 
 #[derive(Debug)]
 pub struct PositionWasOpened {

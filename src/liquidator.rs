@@ -1,26 +1,14 @@
 use std::collections::HashMap;
 
-use web3::types::{
-    Address,
-    U256,
-};
+use web3::types::{Address, U256};
 
 use crate::events;
 use events::{
-    Currency,
-    Event,
-    Exchange,
-    Pair,
-    PositionWasOpened,
-    PositionWasClosed,
-    PositionWasLiquidated,
-    Ticker,
+    Currency, Event, Exchange, PositionWasClosed, PositionWasLiquidated, PositionWasOpened, Ticker,
 };
 
 #[derive(Debug)]
-pub struct Liquidation {
-
-}
+pub struct Liquidation {}
 
 #[derive(Debug)]
 struct Position {
@@ -42,7 +30,6 @@ pub struct Liquidator {
 }
 
 impl Liquidator {
-
     pub fn new() -> Self {
         Liquidator {
             open_positions: HashMap::new(),
@@ -54,22 +41,19 @@ impl Liquidator {
         return match event {
             Event::PositionWasClosed(position_was_closed) => {
                 self.on_position_closed(position_was_closed)
-            },
+            }
             Event::PositionWasOpened(position_was_opened) => {
                 self.on_position_opened(position_was_opened)
-            },
+            }
             Event::PositionWasLiquidated(position_was_liquidated) => {
                 self.on_position_liquidated(position_was_liquidated)
-            },
-            Event::Ticker(ticker) => {
-                self.on_price_ticker(ticker)
-            },
+            }
+            Event::Ticker(ticker) => self.on_price_ticker(ticker),
             _ => {
-
                 // TODO  handle unknown event type
                 panic!();
-            },
-        }
+            }
+        };
     }
 
     fn on_position_opened(&mut self, position_opened: PositionWasOpened) -> Vec<Liquidation> {
@@ -97,7 +81,10 @@ impl Liquidator {
         return vec![];
     }
 
-    fn on_position_liquidated(&mut self, position_liquidated: PositionWasLiquidated) -> Vec<Liquidation> {
+    fn on_position_liquidated(
+        &mut self,
+        position_liquidated: PositionWasLiquidated,
+    ) -> Vec<Liquidation> {
         self.open_positions.remove(&position_liquidated.id);
 
         return vec![];

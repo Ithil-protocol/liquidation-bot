@@ -7,16 +7,12 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol;
 
 use crate::events;
-use events::{
-    Currency,
-    Event,
-    Exchange,
-    Pair,
-};
+use events::{Currency, Event, Exchange, Pair};
 
 const URL: &str = "wss://ws-feed.exchange.coinbase.com";
 
-#[derive(Debug, Serialize)] struct Channel {
+#[derive(Debug, Serialize)]
+struct Channel {
     name: String,
     product_ids: Vec<String>,
 }
@@ -74,18 +70,18 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
         channels: vec![
             Channel {
                 name: String::from("heartbeat"),
-                product_ids: vec![String::from("ETH-USD"), String::from("BTC-USD")]
+                product_ids: vec![String::from("ETH-USD"), String::from("BTC-USD")],
             },
             Channel {
                 name: String::from("ticker"),
-                product_ids: vec![String::from("ETH-USD"), String::from("BTC-USD")]
+                product_ids: vec![String::from("ETH-USD"), String::from("BTC-USD")],
             },
         ],
     };
     let subscribe_request_json = serde_json::to_string(&subscribe_request).unwrap();
-    let subscribe_request_result = ws_write.send(
-        protocol::Message::text(subscribe_request_json)
-    ).await;
+    let subscribe_request_result = ws_write
+        .send(protocol::Message::text(subscribe_request_json))
+        .await;
     if let Err(result) = subscribe_request_result {
         // TODO write a retry mechanism
         panic!("Error subscribing to Coinbase ws channels: {}", result);
@@ -96,39 +92,42 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
             let response: serde_json::Value = serde_json::from_str(&payload).unwrap();
             // TODO parse coinbase subscribe response
             Ok(())
-        },
+        }
         Ok(_) => Err(()),
         Err(_) => Err(()),
     };
 
-    ws_read.for_each(|message| async {
-        match message {
-            Ok(protocol::Message::Text(payload)) => {
-                let msg: serde_json::Value = serde_json::from_str(&payload).unwrap();
-                let msg_type = &msg["type"];
-                if let Value::String(t) = msg_type {
-                    match t.as_str() {
-                        "heartbeat" => {
-                            let heartbeat: Heartbeat = serde_json::from_str(&payload).unwrap();
-                            println!("HEARTBEAT => {:?}", heartbeat);
-                        },
-                        "ticker" => {
-                            let coinbase_ticker: Ticker = serde_json::from_str(&payload).unwrap();
-                            println!("TICKER => {:?}", coinbase_ticker);
-                            let ticker = events::Ticker {
-                                exchange: Exchange::Coinbase,
-                                pair: Pair(Currency::WETH, Currency::USD),
-                                price: 12.3,
-                            };
-                            let event = Event::Ticker(ticker);
-                            events_queue.send(event).await;
-                        },
-                        _ => (),
+    ws_read
+        .for_each(|message| async {
+            match message {
+                Ok(protocol::Message::Text(payload)) => {
+                    let msg: serde_json::Value = serde_json::from_str(&payload).unwrap();
+                    let msg_type = &msg["type"];
+                    if let Value::String(t) = msg_type {
+                        match t.as_str() {
+                            "heartbeat" => {
+                                let heartbeat: Heartbeat = serde_json::from_str(&payload).unwrap();
+                                println!("HEARTBEAT => {:?}", heartbeat);
+                            }
+                            "ticker" => {
+                                let coinbase_ticker: Ticker =
+                                    serde_json::from_str(&payload).unwrap();
+                                println!("TICKER => {:?}", coinbase_ticker);
+                                let ticker = events::Ticker {
+                                    exchange: Exchange::Coinbase,
+                                    pair: Pair(Currency::WETH, Currency::USD),
+                                    price: 12.3,
+                                };
+                                let event = Event::Ticker(ticker);
+                                events_queue.send(event).await;
+                            }
+                            _ => (),
+                        }
                     }
                 }
-            },
-            Ok(_) => (),
-            Err(_) => (),
-        }
-    }).await;
+                Ok(_) => (),
+                Err(_) => (),
+            }
+        })
+        .await;
 }
