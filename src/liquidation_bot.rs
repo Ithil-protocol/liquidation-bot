@@ -3,6 +3,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::events;
 use crate::feeds;
+use crate::feeds::ithil::Ithil;
 use crate::liquidator;
 use events::Event;
 use liquidator::Liquidator;
@@ -14,13 +15,10 @@ pub struct Configuration {
 pub async fn run(configuration: Configuration) {
     let (tx, mut rx): (Sender<Event>, Receiver<Event>) = mpsc::channel(32);
 
-    let tx_ithil_feed = tx.clone();
-    let tx_coinbase_feed = tx.clone();
-
     // 0. Set up Coinbase feed to get real time prices.
     //    Eventually we may use multiple exchanges, including DEXes, to make the bot more robust.
     // tokio::spawn(async move {
-    //     feeds::coinbase::run(tx_coinbase_feed).await;
+    //     feeds::coinbase::run(tx.clone()).await;
     // });
 
     // Read all Coinbase messages for debugging.
@@ -31,10 +29,15 @@ pub async fn run(configuration: Configuration) {
 
     // 1. Set up Ithil Ethereum events feed from Ithil smart contract.
     //    This feed should be used to keep track of open positions and their state.
+
+    let ithil_feed: Ithil = Ithil::new(&configuration.ithil_feed_configuration)
+        .await
+        .unwrap();
+
+    ithil_feed.bootstrap_events_state().await;
+
     tokio::spawn(async move {
-        feeds::ithil::run(configuration.ithil_feed_configuration, tx_ithil_feed)
-            .await
-            .unwrap();
+        ithil_feed.run(tx.clone()).await.unwrap();
     })
     .await
     .unwrap();

@@ -1,11 +1,9 @@
 use std::str::FromStr;
 use std::time;
 
-use web3::contract::Contract;
-use web3::contract::tokens::Tokenizable;
-use web3::ethabi::{Event, EventParam, LogParam, ParamType, RawLog};
+use web3::ethabi::{EventParam, LogParam, ParamType, RawLog};
 use web3::futures::StreamExt;
-use web3::types::{FilterBuilder, H160};
+use web3::types::{BlockNumber, Filter, FilterBuilder, Log, H160, H256, U64};
 
 use crate::events;
 use events::{PositionWasClosed, PositionWasLiquidated, PositionWasOpened};
@@ -16,7 +14,7 @@ pub struct Configuration {
     pub margin_trading_strategy_address: String,
 }
 
-fn make_position_was_opened_event() -> Event {
+fn make_position_was_opened_event() -> web3::ethabi::Event {
     let position_was_opened_event_params = vec![
         EventParam {
             name: "id".to_string(),
@@ -70,7 +68,7 @@ fn make_position_was_opened_event() -> Event {
         },
     ];
 
-    let position_was_opened_event = Event {
+    let position_was_opened_event = web3::ethabi::Event {
         name: "PositionWasOpened".to_string(),
         inputs: position_was_opened_event_params,
         anonymous: false,
@@ -79,14 +77,14 @@ fn make_position_was_opened_event() -> Event {
     return position_was_opened_event;
 }
 
-fn make_position_was_closed_event() -> Event {
+fn make_position_was_closed_event() -> web3::ethabi::Event {
     let position_was_closed_event_params = vec![EventParam {
         name: "id".to_string(),
         kind: ParamType::Uint(256),
         indexed: true,
     }];
 
-    let position_was_closed_event = Event {
+    let position_was_closed_event = web3::ethabi::Event {
         name: "PositionWasClosed".to_string(),
         inputs: position_was_closed_event_params,
         anonymous: false,
@@ -95,14 +93,14 @@ fn make_position_was_closed_event() -> Event {
     return position_was_closed_event;
 }
 
-fn make_position_was_liquidated_event() -> Event {
+fn make_position_was_liquidated_event() -> web3::ethabi::Event {
     let position_was_liquidated_event_params = vec![EventParam {
         name: "id".to_string(),
         kind: ParamType::Uint(256),
         indexed: true,
     }];
 
-    let position_was_liquidated_event = Event {
+    let position_was_liquidated_event = web3::ethabi::Event {
         name: "PositionWasLiquidated".to_string(),
         inputs: position_was_liquidated_event_params,
         anonymous: false,
@@ -138,124 +136,181 @@ fn parse_position_was_liquidated_event(log_params: &Vec<LogParam>) -> events::Ev
     });
 }
 
-async fn bootstrap_events_state(configuration: &Configuration) {
-    let http_transport = web3::transports::Http::new(&configuration.ethereum_provider_https_url).unwrap();
-    let web3 = web3::Web3::new(http_transport.clone());
-
-    let margin_trading_strategy_contract_address = H160::from_str(&configuration.margin_trading_strategy_address).unwrap();
-    let margin_trading_strategy_contract = Contract::from_json(
-        web3.eth(),
-        margin_trading_strategy_contract_address,
-        include_bytes!("../../deployed/abi/Liquidator.json"),
-    )
-    .unwrap();
-
-    let filter = FilterBuilder::default()
-        .address(vec![margin_trading_strategy_contract.address()])
-        .build();
-
-    let filter = web3.eth_filter().create_logs_filter(filter).await.unwrap();
-
-    ethabi::token::Token.String("");
-    let events = margin_trading_strategy_contract.events::<str, i32, i32, i32>("PositionWasOpened", 12, 12, 12).await.unwrap();
-    // let stream = filter.stream(time::Duration::from_secs(60 * 60 * 24 * 30));
-    
-    // stream
-    //     .for_each(|event| {
-    //         println!("Event => {:?}", event);
-    //         futures_util::future::ready(())
-    // })
-    // .await;
+struct EventSignature {
+    position_was_opened: H256,
+    position_was_closed: H256,
+    position_was_liquidated: H256,
 }
 
-pub async fn run(
-    configuration: Configuration,
-    events_queue: tokio::sync::mpsc::Sender<events::Event>,
-) -> web3::Result {
-    // let liquidator_address: [u8; 20] = [
-    //     0x90, 0xb8, 0x80, 0x04, 0x68, 0xb3, 0xdd, 0x06, 0xf8, 0x24, 0xa5, 0x65, 0x89, 0xdE, 0xda,
-    //     0x0A, 0x0b, 0x64, 0x38, 0x68,
-    // ];
-    println!("Connecting ...");
+pub struct Ithil {
+    event_signature: EventSignature,
+    events_filter: web3::types::Filter,
+    margin_trading_strategy_contract: web3::contract::Contract<web3::transports::WebSocket>,
+    web3: web3::Web3<web3::transports::WebSocket>,
+}
 
-    bootstrap_events_state(&configuration).await;
+impl Ithil {
+    pub async fn new(configuration: &Configuration) -> Result<Self, web3::Error> {
+        let ws = web3::transports::WebSocket::new(&configuration.ethereum_provider_wss_url).await?;
+        let web3 = web3::Web3::new(ws.clone());
 
-    let ws = web3::transports::WebSocket::new(&configuration.ethereum_provider_wss_url).await?;
-    let web3 = web3::Web3::new(ws.clone());
+        println!("Connected!");
+        println!("Configuring contract ...");
 
-    println!("connected!");
-    println!("Configuring contract ...");
+        let margin_trading_strategy_contract_address =
+            H160::from_str(&configuration.margin_trading_strategy_address).unwrap();
+        let margin_trading_strategy_contract = web3::contract::Contract::from_json(
+            web3.eth(),
+            margin_trading_strategy_contract_address,
+            include_bytes!("../../deployed/abi/MarginTradingStrategy.json"),
+        )
+        .unwrap();
 
-    let margin_trading_strategy_contract_address = H160::from_str(&configuration.margin_trading_strategy_address).unwrap();
-    let margin_trading_strategy_contract = Contract::from_json(
-        web3.eth(),
-        margin_trading_strategy_contract_address,
-        include_bytes!("../../deployed/abi/Liquidator.json"),
-    )
-    .unwrap();
+        let position_was_opened_signature = margin_trading_strategy_contract
+            .abi()
+            .event("PositionWasOpened")
+            .unwrap()
+            .signature();
+        let position_was_closed_signature = margin_trading_strategy_contract
+            .abi()
+            .event("PositionWasClosed")
+            .unwrap()
+            .signature();
+        let position_was_liquidated_signature = margin_trading_strategy_contract
+            .abi()
+            .event("PositionWasLiquidated")
+            .unwrap()
+            .signature();
 
-    println!("done!");
+        let events_filter = FilterBuilder::default()
+            .address(vec![margin_trading_strategy_contract.address()])
+            .from_block(BlockNumber::Number(U64::from(10742373 as i32)))
+            .to_block(BlockNumber::Latest)
+            .topics(
+                Some(vec![
+                    position_was_opened_signature,
+                    position_was_closed_signature,
+                    position_was_liquidated_signature,
+                ]),
+                None,
+                None,
+                None,
+            )
+            .build();
 
-    let filter = FilterBuilder::default()
-        .address(vec![margin_trading_strategy_contract.address()])
-        .build();
+        Ok(Self {
+            event_signature: EventSignature {
+                position_was_opened: position_was_opened_signature,
+                position_was_closed: position_was_closed_signature,
+                position_was_liquidated: position_was_liquidated_signature,
+            },
+            events_filter,
+            margin_trading_strategy_contract,
+            web3,
+        })
+    }
 
-    let mut sub = web3.eth_subscribe().subscribe_logs(filter).await?;
+    fn parse_event(&self, log: &Log) -> Option<events::Event> {
+        let raw_log = RawLog {
+            topics: log.topics.clone(),
+            data: log.data.0.clone(),
+        };
 
-    println!("Got subscription id {:?}", sub.id());
+        match log.topics[0] {
+            s if s == self.event_signature.position_was_opened => {
+                let log_params = make_position_was_opened_event()
+                    .parse_log(raw_log)
+                    .unwrap()
+                    .params;
+                let position_was_opened = parse_position_was_opened_event(&log_params);
+                Some(position_was_opened)
+            }
+            s if s == self.event_signature.position_was_closed => {
+                let log_params = make_position_was_closed_event()
+                    .parse_log(raw_log)
+                    .unwrap()
+                    .params;
+                let position_was_closed = parse_position_was_closed_event(&log_params);
+                Some(position_was_closed)
+            }
+            s if s == self.event_signature.position_was_liquidated => {
+                let log_params = make_position_was_liquidated_event()
+                    .parse_log(raw_log)
+                    .unwrap()
+                    .params;
+                let position_was_liquidated = parse_position_was_liquidated_event(&log_params);
+                Some(position_was_liquidated)
+            }
+            _ => {
+                // TODO handle unknown event
+                println!("Unparsed data");
+                None
+            }
+        }
+    }
 
-    let position_was_opened_event = make_position_was_opened_event();
-    let position_was_closed_event = make_position_was_closed_event();
-    let position_was_liquidated_event = make_position_was_liquidated_event();
+    pub async fn bootstrap_events_state(&self) -> web3::Result {
+        let logs_filter = self
+            .web3
+            .eth_filter()
+            .create_logs_filter(self.events_filter.clone())
+            .await?;
 
-    (&mut sub)
-        .take(6)
-        .for_each(|msg| async {
-            if msg.is_ok() {
-                let log = msg.unwrap();
-                println!("{:?}", log);
-                let raw_log = RawLog {
-                    topics: log.topics,
-                    data: log.data.0,
-                };
-                if let Some(log_type) = log.log_type {
-                    let parsed_event = match log_type.as_str() {
-                        "PositionWasOpened" => {
-                            let log_params =
-                                position_was_opened_event.parse_log(raw_log).unwrap().params;
-                            let position_was_opened = parse_position_was_opened_event(&log_params);
-                            Some(position_was_opened)
-                        }
-                        "PositionWasClosed" => {
-                            let log_params =
-                                position_was_closed_event.parse_log(raw_log).unwrap().params;
-                            let position_was_closed = parse_position_was_closed_event(&log_params);
-                            Some(position_was_closed)
-                        }
-                        "PositionWasLiquidated" => {
-                            let log_params = position_was_liquidated_event
-                                .parse_log(raw_log)
-                                .unwrap()
-                                .params;
-                            let position_was_liquidated =
-                                parse_position_was_liquidated_event(&log_params);
-                            Some(position_was_liquidated)
-                        }
-                        _ => {
-                            // TODO Log unhandled event type
-                            None
-                        }
-                    };
+        println!("Polling ...");
 
+        let logs = logs_filter.logs().await?;
+
+        // logs_filter.stream(time::Duration::from_secs(1)).take(4).for_each(|msg| {
+        //     println!("msg -> {:?}", msg);
+        //     futures_util::future::ready(())
+        // }).await;
+
+        println!("Got logs => {:?}", logs);
+
+        for log in logs {
+            if let Some(event) = self.parse_event(&log) {
+                println!("Event => {:?}", event);
+            }
+        }
+
+        Ok(())
+
+        // stream
+        //     .for_each(|event| {
+        //         println!("Event => {:?}", event);
+        //         futures_util::future::ready(())
+        // })
+        // .await;
+    }
+
+    pub async fn run(
+        &self,
+        events_queue: tokio::sync::mpsc::Sender<events::Event>,
+    ) -> web3::Result {
+        let mut sub = self
+            .web3
+            .eth_subscribe()
+            .subscribe_logs(self.events_filter.clone())
+            .await?;
+
+        println!("Got subscription id {:?}", sub.id());
+
+        (&mut sub)
+            .take(6)
+            .for_each(|msg| async {
+                if msg.is_ok() {
+                    let log = msg.unwrap();
+                    println!("{:?}", log);
+                    let parsed_event = self.parse_event(&log);
                     if let Some(event) = parsed_event {
                         let _ = events_queue.send(event);
                     }
                 }
-            }
-        })
-        .await;
+            })
+            .await;
 
-    sub.unsubscribe().await?;
+        sub.unsubscribe().await?;
 
-    Ok(())
+        Ok(())
+    }
 }
