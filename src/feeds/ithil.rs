@@ -249,7 +249,7 @@ impl Ithil {
         }
     }
 
-    pub async fn bootstrap_events_state(&self) -> web3::Result {
+    pub async fn bootstrap_positions_state(&self) -> web3::Result<Vec<events::Event>> {
         let logs_filter = self
             .web3
             .eth_filter()
@@ -267,20 +267,12 @@ impl Ithil {
 
         println!("Got logs => {:?}", logs);
 
-        for log in logs {
-            if let Some(event) = self.parse_event(&log) {
-                println!("Event => {:?}", event);
-            }
-        }
+        let events = logs
+            .into_iter()
+            .filter_map(|log| self.parse_event(&log))
+            .collect();
 
-        Ok(())
-
-        // stream
-        //     .for_each(|event| {
-        //         println!("Event => {:?}", event);
-        //         futures_util::future::ready(())
-        // })
-        // .await;
+        Ok(events)
     }
 
     pub async fn run(

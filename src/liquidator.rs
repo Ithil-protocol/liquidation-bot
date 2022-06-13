@@ -11,7 +11,7 @@ use events::{
 pub struct Liquidation {}
 
 #[derive(Debug)]
-struct Position {
+pub struct Position {
     pub id: U256,
     pub owner: Address,
     pub owed_token: Address,
@@ -25,7 +25,7 @@ struct Position {
 }
 
 pub struct Liquidator {
-    open_positions: HashMap<U256, Position>,
+    pub open_positions: HashMap<U256, Position>,
     prices: HashMap<Currency, f64>,
 }
 
