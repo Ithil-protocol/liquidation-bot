@@ -34,9 +34,7 @@ pub async fn run(configuration: Configuration) {
     let tx_ithil = tx.clone();
     tokio::spawn(async move {
         ithil_feed.run(tx_ithil).await.unwrap();
-    })
-    .await
-    .unwrap();
+    });
 
     // 3. Set up Coinbase feed to get real time prices.
     //    Eventually we may use multiple exchanges, including DEXes, to make the bot more robust.
@@ -44,7 +42,7 @@ pub async fn run(configuration: Configuration) {
     let tx_coinbase = tx.clone();
     tokio::spawn(async move {
         feeds::coinbase::run(tx_coinbase).await;
-    }).await.unwrap();
+    });
 
     // 4. Read all incoming messages from the Ethereum network and price feeds from exchanges,
     //    keep an updated view on open positions and real time prices, trigger liquidation logic.
