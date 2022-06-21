@@ -50,10 +50,6 @@ impl Liquidator {
                 self.on_position_liquidated(position_was_liquidated)
             }
             Event::Ticker(ticker) => self.on_price_ticker(ticker),
-            _ => {
-                // TODO  handle unknown event type
-                panic!();
-            }
         };
     }
 
