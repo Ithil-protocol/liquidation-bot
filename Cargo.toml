@@ -9,6 +9,7 @@ edition = "2021"
 chrono = "*"
 futures = "*"
 futures-util = "*"
+itertools = "*"
 serde = { version = "1.0.124", features = ["derive"] }
 serde-aux = "*"
 serde_json = "*"

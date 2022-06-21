@@ -1,5 +1,8 @@
+use std::str::FromStr;
+
 use futures_util::sink::SinkExt;
 use futures_util::StreamExt;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string;
 use serde_json::Value;
@@ -115,11 +118,11 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
                                 println!("TICKER => {:?}", coinbase_ticker);
                                 let ticker = events::Ticker {
                                     exchange: Exchange::Coinbase,
-                                    pair: Pair(Currency::WETH, Currency::USD),
-                                    price: 12.3,
+                                    pair: parse_product_id(&coinbase_ticker.product_id),
+                                    price: coinbase_ticker.price,
                                 };
                                 let event = Event::Ticker(ticker);
-                                events_queue.send(event).await;
+                                events_queue.send(event).await.unwrap();
                             }
                             _ => (),
                         }
@@ -130,4 +133,16 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
             }
         })
         .await;
+}
+
+fn parse_product_id(product_id: &str) -> Pair {
+    // Parses a Coinbase product_id in the form e.g. BTC-USD.
+    if let Some((first, second)) = product_id.split("-").collect_tuple() {
+        return Pair(
+            Currency::from_str(first).unwrap(),
+            Currency::from_str(second).unwrap(),
+        );
+    } else {
+        panic!("Expected two elements")
+    }
 }

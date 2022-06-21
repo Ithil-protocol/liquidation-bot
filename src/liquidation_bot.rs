@@ -23,10 +23,15 @@ pub async fn run(configuration: Configuration) {
         .unwrap();
 
     // 1. Build current position from past events
-    ithil_feed.bootstrap_positions_state().await.unwrap().into_iter().for_each(|event| {
-        println!("Event => {:?}", event);
-        liquidator.run(event);
-    });
+    ithil_feed
+        .bootstrap_positions_state()
+        .await
+        .unwrap()
+        .into_iter()
+        .for_each(|event| {
+            println!("Event => {:?}", event);
+            liquidator.run(event);
+        });
 
     println!("Position => {:?}", liquidator.open_positions);
 

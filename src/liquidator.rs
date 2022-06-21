@@ -4,7 +4,8 @@ use web3::types::{Address, U256};
 
 use crate::events;
 use events::{
-    Currency, Event, Exchange, PositionWasClosed, PositionWasLiquidated, PositionWasOpened, Ticker,
+    Currency, Event, Exchange, Pair, PositionWasClosed, PositionWasLiquidated, PositionWasOpened,
+    Ticker,
 };
 
 #[derive(Debug)]
@@ -26,7 +27,7 @@ pub struct Position {
 
 pub struct Liquidator {
     pub open_positions: HashMap<U256, Position>,
-    prices: HashMap<Currency, f64>,
+    prices: HashMap<Pair, f64>,
 }
 
 impl Liquidator {
