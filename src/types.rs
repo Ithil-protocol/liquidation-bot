@@ -1,12 +1,15 @@
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
+use web3::ethabi::Address;
+
 #[derive(Debug)]
 pub enum Exchange {
     Coinbase,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
-pub enum Currency {
+#[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum CurrencyCode {
     BTC,
     DAI,
     ETH,
@@ -15,21 +18,28 @@ pub enum Currency {
     WETH,
 }
 
-impl FromStr for Currency {
+impl FromStr for CurrencyCode {
     type Err = ();
 
-    fn from_str(input: &str) -> Result<Currency, Self::Err> {
+    fn from_str(input: &str) -> Result<CurrencyCode, Self::Err> {
         match input {
-            "BTC" => Ok(Currency::BTC),
-            "DAI" => Ok(Currency::DAI),
-            "ETH" => Ok(Currency::ETH),
-            "USD" => Ok(Currency::USD),
-            "USDC" => Ok(Currency::USDC),
-            "WETH" => Ok(Currency::WETH),
+            "BTC" => Ok(CurrencyCode::BTC),
+            "DAI" => Ok(CurrencyCode::DAI),
+            "ETH" => Ok(CurrencyCode::ETH),
+            "USD" => Ok(CurrencyCode::USD),
+            "USDC" => Ok(CurrencyCode::USDC),
+            "WETH" => Ok(CurrencyCode::WETH),
             _ => Err(()),
         }
     }
 }
 
 #[derive(Debug, Eq, Hash, PartialEq)]
-pub struct Pair(pub Currency, pub Currency);
+pub struct Pair(pub CurrencyCode, pub CurrencyCode);
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Token {
+    pub name: String,
+    pub address: Address,
+    pub symbol: CurrencyCode,
+}

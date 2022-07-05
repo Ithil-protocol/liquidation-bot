@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 
 use crate::liquidation_bot::Configuration;
+use crate::types::Token;
 
 mod events;
 mod feeds;
@@ -9,7 +10,16 @@ mod liquidation_bot;
 mod liquidator;
 pub mod types;
 
-// fn load_token_list() -> Result<Vec<Token>>
+fn load_token_list() -> Result<Vec<Token>, ()> {
+    let file = fs::File::open("deployed/latest/tokenlist.json").unwrap();
+    let json: serde_json::Value = serde_json::from_reader(file).unwrap();
+    if let Some(tokens_array) = json.get("tokens").unwrap().as_array() {
+        let tokens: Vec<Token> = tokens_array.into_iter().map(|token| serde_json::from_value(token.clone()).unwrap()).collect();
+        Ok(tokens)
+    } else {
+        Err(())
+    }
+}
 
 fn load_config() -> Result<Configuration, ()> {
     let file = fs::File::open("deployed/latest/addresses.json").unwrap();
@@ -33,6 +43,9 @@ fn load_config() -> Result<Configuration, ()> {
 #[tokio::main]
 async fn main() {
     let config = load_config().unwrap();
+    let tokens = load_token_list().unwrap();
+
+    println!("Tokens => {:?}", tokens);
 
     liquidation_bot::run(config).await;
 }

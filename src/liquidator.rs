@@ -9,7 +9,7 @@ use events::{
 };
 
 use crate::types::{
-    Currency,
+    CurrencyCode,
     Pair,
 };
 
@@ -33,7 +33,7 @@ pub struct Position {
 pub struct Liquidator {
     open_positions: HashMap<U256, Position>,
     prices: HashMap<Pair, f64>,
-    risk_factors: HashMap<Currency, f64>,
+    risk_factors: HashMap<CurrencyCode, f64>,
 }
 
 impl Liquidator {

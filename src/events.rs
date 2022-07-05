@@ -1,4 +1,4 @@
-use crate::types::{Currency, Exchange, Pair};
+use crate::types::{Exchange, Pair};
 
 use web3::{ethabi::Address, types::U256};
 

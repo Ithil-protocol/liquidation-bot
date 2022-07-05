@@ -10,7 +10,7 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol;
 
 use crate::events;
-use crate::types::{Currency, Exchange, Pair};
+use crate::types::{CurrencyCode, Exchange, Pair};
 use events::Event;
 
 const URL: &str = "wss://ws-feed.exchange.coinbase.com";
@@ -140,8 +140,8 @@ fn parse_product_id(product_id: &str) -> Pair {
     // Parses a Coinbase product_id in the form e.g. BTC-USD.
     if let Some((first, second)) = product_id.split("-").collect_tuple() {
         return Pair(
-            Currency::from_str(first).unwrap(),
-            Currency::from_str(second).unwrap(),
+            CurrencyCode::from_str(first).unwrap(),
+            CurrencyCode::from_str(second).unwrap(),
         );
     } else {
         panic!("Expected two elements")
