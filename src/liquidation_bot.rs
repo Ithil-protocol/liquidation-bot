@@ -33,8 +33,6 @@ pub async fn run(configuration: Configuration) {
             liquidator.run(event);
         });
 
-    println!("Position => {:?}", liquidator.open_positions);
-
     // 2. Listen for new events
     let tx_ithil = tx.clone();
     tokio::spawn(async move {

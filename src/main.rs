@@ -7,6 +7,9 @@ mod events;
 mod feeds;
 mod liquidation_bot;
 mod liquidator;
+pub mod types;
+
+// fn load_token_list() -> Result<Vec<Token>>
 
 fn load_config() -> Result<Configuration, ()> {
     let file = fs::File::open("deployed/latest/addresses.json").unwrap();

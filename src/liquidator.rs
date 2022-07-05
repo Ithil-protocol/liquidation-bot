@@ -4,8 +4,13 @@ use web3::types::{Address, U256};
 
 use crate::events;
 use events::{
-    Currency, Event, Exchange, Pair, PositionWasClosed, PositionWasLiquidated, PositionWasOpened,
+    Event, PositionWasClosed, PositionWasLiquidated, PositionWasOpened,
     Ticker,
+};
+
+use crate::types::{
+    Currency,
+    Pair,
 };
 
 #[derive(Debug)]
@@ -26,8 +31,9 @@ pub struct Position {
 }
 
 pub struct Liquidator {
-    pub open_positions: HashMap<U256, Position>,
+    open_positions: HashMap<U256, Position>,
     prices: HashMap<Pair, f64>,
+    risk_factors: HashMap<Currency, f64>,
 }
 
 impl Liquidator {
@@ -35,10 +41,12 @@ impl Liquidator {
         Liquidator {
             open_positions: HashMap::new(),
             prices: HashMap::new(),
+            risk_factors: HashMap::new(),
         }
     }
 
     pub fn run(&mut self, event: Event) -> Vec<Liquidation> {
+        println!("Position => {:?}", self.open_positions);
         return match event {
             Event::PositionWasClosed(position_was_closed) => {
                 self.on_position_closed(position_was_closed)
@@ -88,9 +96,19 @@ impl Liquidator {
     }
 
     fn on_price_ticker(&mut self, ticker: Ticker) -> Vec<Liquidation> {
-        // TODO update currency prices
-        // TODO check liquidation rules on all open positions
+        self.prices.insert(ticker.pair, ticker.price);
+
+ //        self.open_positions.iter().filter(|(id, position)| Pair(position.held_token, position.owed_token) == ticker.pair).collect();
 
         return vec![];
     }
+
+    // fn compute_liquidation_score(position: &Position) -> i32 {
+    //     let collateral_in_owed_token = position.collateral_token == position.held_token;
+    //     let pair_risk_factor = compute_pair_risk_factor(position.held_token, position.owed_token);
+    // }
+
+    // fn compute_pair_risk_factor(token0: Currency, token1: Currency) -> i32 {
+    //     (self.risk_factors[token0] + self.risk_factors[token1]) / 2;
+    // }
 }

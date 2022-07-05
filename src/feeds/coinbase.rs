@@ -10,7 +10,8 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol;
 
 use crate::events;
-use events::{Currency, Event, Exchange, Pair};
+use crate::types::{Currency, Exchange, Pair};
+use events::Event;
 
 const URL: &str = "wss://ws-feed.exchange.coinbase.com";
 
