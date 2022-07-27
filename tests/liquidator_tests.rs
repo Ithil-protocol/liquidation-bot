@@ -22,7 +22,7 @@ fn test_position_is_liquidated_after_loss() {
     };
 
     let tokens: Vec<Token> = vec![dai_token.clone(), weth_token.clone()];
-    
+
     let mut liquidator = Liquidator::new(tokens);
 
     let events: Vec<Event> = vec![
@@ -56,10 +56,11 @@ fn test_position_is_liquidated_after_loss() {
         }),
     ];
 
-    let liquidations: Vec<Liquidation> = events
-        .into_iter()
-        .flat_map(|event| liquidator.run(event))
-        .collect();
+    let liquidations = events.into_iter().fold(vec![], |mut liquidations, event| {
+        let mut new_liquidations = liquidator.run(event);
+        liquidations.append(&mut new_liquidations);
+        liquidations
+    });
 
     assert_eq!(liquidations.len(), 1);
 

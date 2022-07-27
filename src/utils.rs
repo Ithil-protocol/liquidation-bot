@@ -1,9 +1,9 @@
 use std::env;
 use std::fs;
 
+use crate::feeds;
 use crate::liquidation_bot::Configuration;
 use crate::types::Token;
-use crate::feeds;
 
 pub fn load_token_list() -> Result<Vec<Token>, ()> {
     let file = fs::File::open("deployed/goerli/deployments/tokenlist.json").unwrap();
