@@ -27,6 +27,12 @@ pub struct PositionWasLiquidated {
 }
 
 #[derive(Debug)]
+pub struct RiskFactorWasUpdated {
+    pub token: Address,
+    pub new_risk_factor: U256,
+}
+
+#[derive(Debug)]
 pub struct Ticker {
     pub exchange: Exchange,
     pub pair: Pair,
@@ -38,5 +44,6 @@ pub enum Event {
     PositionWasOpened(PositionWasOpened),
     PositionWasClosed(PositionWasClosed),
     PositionWasLiquidated(PositionWasLiquidated),
+    RiskFactorWasUpdated(RiskFactorWasUpdated),
     Ticker(Ticker),
 }

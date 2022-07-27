@@ -8,7 +8,7 @@ pub enum Exchange {
     Coinbase,
 }
 
-#[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum CurrencyCode {
     BTC,
     DAI,
@@ -37,9 +37,12 @@ impl FromStr for CurrencyCode {
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Pair(pub CurrencyCode, pub CurrencyCode);
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Token {
     pub name: String,
     pub address: Address,
     pub symbol: CurrencyCode,
 }
+
+#[derive(Debug)]
+pub struct Liquidation {}

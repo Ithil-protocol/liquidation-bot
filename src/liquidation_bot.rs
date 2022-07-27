@@ -5,11 +5,13 @@ use crate::events;
 use crate::feeds;
 use crate::feeds::ithil::Ithil;
 use crate::liquidator;
+use crate::types::Token;
 use events::Event;
 use liquidator::Liquidator;
 
 pub struct Configuration {
-    pub ithil_feed_configuration: crate::feeds::ithil::Configuration,
+    pub ithil_feed_configuration: feeds::ithil::Configuration,
+    pub tokens: Vec<Token>,
 }
 
 pub async fn run(configuration: Configuration) {
@@ -17,7 +19,7 @@ pub async fn run(configuration: Configuration) {
 
     // 0. Set up Ithil Ethereum events feed from Ithil smart contract.
     //    This feed should be used to keep track of open positions and their state.
-    let mut liquidator = Liquidator::new();
+    let mut liquidator = Liquidator::new(configuration.tokens);
     let ithil_feed: Ithil = Ithil::new(&configuration.ithil_feed_configuration)
         .await
         .unwrap();

@@ -4,17 +4,11 @@ use web3::types::{Address, U256};
 
 use crate::events;
 use events::{
-    Event, PositionWasClosed, PositionWasLiquidated, PositionWasOpened,
+    Event, PositionWasClosed, PositionWasLiquidated, PositionWasOpened, RiskFactorWasUpdated,
     Ticker,
 };
 
-use crate::types::{
-    CurrencyCode,
-    Pair,
-};
-
-#[derive(Debug)]
-pub struct Liquidation {}
+use crate::types::{CurrencyCode, Liquidation, Pair, Token};
 
 #[derive(Debug)]
 pub struct Position {
@@ -33,15 +27,17 @@ pub struct Position {
 pub struct Liquidator {
     open_positions: HashMap<U256, Position>,
     prices: HashMap<Pair, f64>,
-    risk_factors: HashMap<CurrencyCode, f64>,
+    risk_factors: HashMap<CurrencyCode, web3::types::U256>,
+    tokens: Vec<Token>,
 }
 
 impl Liquidator {
-    pub fn new() -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Liquidator {
             open_positions: HashMap::new(),
             prices: HashMap::new(),
             risk_factors: HashMap::new(),
+            tokens,
         }
     }
 
@@ -56,6 +52,9 @@ impl Liquidator {
             }
             Event::PositionWasLiquidated(position_was_liquidated) => {
                 self.on_position_liquidated(position_was_liquidated)
+            }
+            Event::RiskFactorWasUpdated(risk_factor_was_updated) => {
+                self.on_risk_factor_updated(risk_factor_was_updated)
             }
             Event::Ticker(ticker) => self.on_price_ticker(ticker),
         };
@@ -95,10 +94,28 @@ impl Liquidator {
         return vec![];
     }
 
+    fn on_risk_factor_updated(
+        &mut self,
+        risk_factor_was_updated: RiskFactorWasUpdated,
+    ) -> Vec<Liquidation> {
+        let token = self
+            .tokens
+            .iter()
+            .find(|t| t.address == risk_factor_was_updated.token)
+            .unwrap();
+
+        self.risk_factors.insert(
+            token.symbol.clone(),
+            risk_factor_was_updated.new_risk_factor,
+        );
+
+        vec![]
+    }
+
     fn on_price_ticker(&mut self, ticker: Ticker) -> Vec<Liquidation> {
         self.prices.insert(ticker.pair, ticker.price);
 
- //        self.open_positions.iter().filter(|(id, position)| Pair(position.held_token, position.owed_token) == ticker.pair).collect();
+        //        self.open_positions.iter().filter(|(id, position)| Pair(position.held_token, position.owed_token) == ticker.pair).collect();
 
         return vec![];
     }

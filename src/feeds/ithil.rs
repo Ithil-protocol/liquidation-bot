@@ -6,7 +6,7 @@ use web3::futures::StreamExt;
 use web3::types::{BlockNumber, Filter, FilterBuilder, Log, H160, H256, U64};
 
 use crate::events;
-use events::{PositionWasClosed, PositionWasLiquidated, PositionWasOpened};
+use events::{PositionWasClosed, PositionWasLiquidated, PositionWasOpened, RiskFactorWasUpdated};
 
 pub struct Configuration {
     pub ethereum_provider_https_url: String,
@@ -68,13 +68,11 @@ fn make_position_was_opened_event() -> web3::ethabi::Event {
         },
     ];
 
-    let position_was_opened_event = web3::ethabi::Event {
+    web3::ethabi::Event {
         name: "PositionWasOpened".to_string(),
         inputs: position_was_opened_event_params,
         anonymous: false,
-    };
-
-    return position_was_opened_event;
+    }
 }
 
 fn make_position_was_closed_event() -> web3::ethabi::Event {
@@ -84,13 +82,11 @@ fn make_position_was_closed_event() -> web3::ethabi::Event {
         indexed: true,
     }];
 
-    let position_was_closed_event = web3::ethabi::Event {
+    web3::ethabi::Event {
         name: "PositionWasClosed".to_string(),
         inputs: position_was_closed_event_params,
         anonymous: false,
-    };
-
-    return position_was_closed_event;
+    }
 }
 
 fn make_position_was_liquidated_event() -> web3::ethabi::Event {
@@ -100,13 +96,32 @@ fn make_position_was_liquidated_event() -> web3::ethabi::Event {
         indexed: true,
     }];
 
-    let position_was_liquidated_event = web3::ethabi::Event {
+    web3::ethabi::Event {
         name: "PositionWasLiquidated".to_string(),
         inputs: position_was_liquidated_event_params,
         anonymous: false,
-    };
+    }
+}
 
-    return position_was_liquidated_event;
+fn make_risk_factor_was_updated_event() -> web3::ethabi::Event {
+    let risk_factor_was_updated_event_params = vec![
+        EventParam {
+            name: "token".to_string(),
+            kind: ParamType::Address,
+            indexed: true,
+        },
+        EventParam {
+            name: "newRiskFactor".to_string(),
+            kind: ParamType::Uint(256),
+            indexed: false,
+        },
+    ];
+
+    web3::ethabi::Event {
+        name: "RiskFactorWasUpdated".to_string(),
+        inputs: risk_factor_was_updated_event_params,
+        anonymous: false,
+    }
 }
 
 fn parse_position_was_opened_event(log_params: &Vec<LogParam>) -> events::Event {
@@ -125,21 +140,29 @@ fn parse_position_was_opened_event(log_params: &Vec<LogParam>) -> events::Event 
 }
 
 fn parse_position_was_closed_event(log_params: &Vec<LogParam>) -> events::Event {
-    return events::Event::PositionWasClosed(PositionWasClosed {
+    events::Event::PositionWasClosed(PositionWasClosed {
         id: log_params[0].value.clone().into_uint().unwrap(),
-    });
+    })
 }
 
 fn parse_position_was_liquidated_event(log_params: &Vec<LogParam>) -> events::Event {
-    return events::Event::PositionWasLiquidated(PositionWasLiquidated {
+    events::Event::PositionWasLiquidated(PositionWasLiquidated {
         id: log_params[0].value.clone().into_uint().unwrap(),
-    });
+    })
+}
+
+fn parse_risk_factor_was_updated_event(log_params: &Vec<LogParam>) -> events::Event {
+    events::Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
+        token: log_params[0].value.clone().into_address().unwrap(),
+        new_risk_factor: log_params[0].value.clone().into_uint().unwrap(),
+    })
 }
 
 struct EventSignature {
     position_was_opened: H256,
     position_was_closed: H256,
     position_was_liquidated: H256,
+    risk_factor_was_updated: H256,
 }
 
 pub struct Ithil {
@@ -162,7 +185,7 @@ impl Ithil {
         let margin_trading_strategy_contract = web3::contract::Contract::from_json(
             web3.eth(),
             margin_trading_strategy_contract_address,
-            include_bytes!("../../deployed/abi/MarginTradingStrategy.json"),
+            include_bytes!("../../deployed/goerli/abi/MarginTradingStrategy.json"),
         )
         .unwrap();
 
@@ -181,6 +204,11 @@ impl Ithil {
             .event("PositionWasLiquidated")
             .unwrap()
             .signature();
+        let risk_factor_was_updated_signature = margin_trading_strategy_contract
+            .abi()
+            .event("RiskFactorWasUpdated")
+            .unwrap()
+            .signature();
 
         let events_filter = FilterBuilder::default()
             .address(vec![margin_trading_strategy_contract.address()])
@@ -191,6 +219,7 @@ impl Ithil {
                     position_was_opened_signature,
                     position_was_closed_signature,
                     position_was_liquidated_signature,
+                    risk_factor_was_updated_signature,
                 ]),
                 None,
                 None,
@@ -203,6 +232,7 @@ impl Ithil {
                 position_was_opened: position_was_opened_signature,
                 position_was_closed: position_was_closed_signature,
                 position_was_liquidated: position_was_liquidated_signature,
+                risk_factor_was_updated: risk_factor_was_updated_signature,
             },
             events_filter,
             margin_trading_strategy_contract,
@@ -240,6 +270,14 @@ impl Ithil {
                     .params;
                 let position_was_liquidated = parse_position_was_liquidated_event(&log_params);
                 Some(position_was_liquidated)
+            }
+            s if s == self.event_signature.risk_factor_was_updated => {
+                let log_params = make_risk_factor_was_updated_event()
+                    .parse_log(raw_log)
+                    .unwrap()
+                    .params;
+                let risk_factor_was_updated = parse_risk_factor_was_updated_event(&log_params);
+                Some(risk_factor_was_updated)
             }
             _ => {
                 // TODO handle unknown event
