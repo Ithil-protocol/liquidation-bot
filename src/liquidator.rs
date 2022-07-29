@@ -28,7 +28,7 @@ pub struct Liquidator {
     open_positions: HashMap<U256, Position>,
     prices: HashMap<Pair, f64>,
     risk_factors: HashMap<CurrencyCode, web3::types::U256>,
-    tokens: Vec<Token>,
+    tokens: HashMap<Address, Token>,
 }
 
 impl Liquidator {
@@ -91,18 +91,14 @@ impl Liquidator {
     ) -> Vec<Liquidation> {
         self.open_positions.remove(&position_liquidated.id);
 
-        return vec![];
+        vec![]
     }
 
     fn on_risk_factor_updated(
         &mut self,
         risk_factor_was_updated: RiskFactorWasUpdated,
     ) -> Vec<Liquidation> {
-        let token = self
-            .tokens
-            .iter()
-            .find(|t| t.address == risk_factor_was_updated.token)
-            .unwrap();
+        let token = self.tokens.get(&risk_factor_was_updated.token).unwrap();
 
         self.risk_factors.insert(
             token.symbol.clone(),
@@ -120,12 +116,20 @@ impl Liquidator {
         return vec![];
     }
 
-    // fn compute_liquidation_score(position: &Position) -> i32 {
-    //     let collateral_in_owed_token = position.collateral_token == position.held_token;
-    //     let pair_risk_factor = compute_pair_risk_factor(position.held_token, position.owed_token);
-    // }
+    fn compute_pair_risk_factor(&self, token0: &CurrencyCode, token1: &CurrencyCode) -> U256 {
+        (self.risk_factors[token0] + self.risk_factors[token1]) / 2
+    }
 
-    // fn compute_pair_risk_factor(token0: Currency, token1: Currency) -> i32 {
-    //     (self.risk_factors[token0] + self.risk_factors[token1]) / 2;
-    // }
+    fn compute_liquidation_score(&self, position: &Position) -> U256 {
+        let collateral_in_owed_token = position.collateral_token == position.held_token;
+
+        let held_token = self.tokens.get(&position.held_token).unwrap();
+        let owed_token = self.tokens.get(&position.owed_token).unwrap();
+
+        let pair_risk_factor = self.compute_pair_risk_factor(&held_token.symbol, &owed_token.symbol);
+
+        let due_fees = position.fees *
+            (position.interest_rate * (block.timestamp - position.created_at) * position.principal) /
+            (uint32(VaultMath.TIME_FEE_PERIOD) * VaultMath.RESOLUTION);
+    }
 }
