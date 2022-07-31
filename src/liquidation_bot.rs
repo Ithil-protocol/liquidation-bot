@@ -19,7 +19,7 @@ pub struct Configuration {
 }
 
 pub async fn run(configuration: Configuration) {
-    let (tx, mut rx): (Sender<Event>, Receiver<Event>) = mpsc::channel(32);
+    let (tx, mut rx): (Sender<Event>, Receiver<Event>) = mpsc::channel(1024);
 
     let tokens: HashMap<Address, Token> = configuration
         .tokens
