@@ -34,7 +34,7 @@ impl FromStr for CurrencyCode {
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Pair(pub CurrencyCode, pub CurrencyCode);
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -30,6 +30,9 @@ pub fn load_config() -> Result<Configuration, ()> {
     let infura_api_key = env::var("INFURA_API_KEY").unwrap();
 
     Ok(Configuration {
+        ethereum_feed_configuration: feeds::ethereum::Configuration {
+            ethereum_provider_wss_url: format!("wss://rinkeby.infura.io/ws/v3/{}", infura_api_key),
+        },
         ithil_feed_configuration: feeds::ithil::Configuration {
             ethereum_provider_https_url: format!("https://rinkeby.infura.io/v3/{}", infura_api_key),
             ethereum_provider_wss_url: format!("wss://rinkeby.infura.io/ws/v3/{}", infura_api_key),

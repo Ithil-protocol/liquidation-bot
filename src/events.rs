@@ -1,6 +1,7 @@
 use crate::types::{Exchange, Pair};
 
-use web3::{ethabi::Address, types::U256};
+use web3::ethabi::Address;
+use web3::types::U256;
 
 #[derive(Debug)]
 pub struct PositionWasOpened {
@@ -39,8 +40,14 @@ pub struct Ticker {
     pub price: f64,
 }
 
+#[derive(Clone, Debug)]
+pub struct BlockHeader {
+    pub timestamp: U256,
+}
+
 #[derive(Debug)]
 pub enum Event {
+    BlockHeader(BlockHeader),
     PositionWasOpened(PositionWasOpened),
     PositionWasClosed(PositionWasClosed),
     PositionWasLiquidated(PositionWasLiquidated),

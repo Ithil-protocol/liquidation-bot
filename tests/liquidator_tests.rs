@@ -1,8 +1,13 @@
-use liquidation_bot::events::{Event, PositionWasOpened, RiskFactorWasUpdated, Ticker};
-use liquidation_bot::liquidator::Liquidator;
-use liquidation_bot::types::{CurrencyCode, Exchange, Liquidation, Pair, Token};
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use web3::types::U256;
+use liquidation_bot::events::{
+    BlockHeader, Event, PositionWasOpened, RiskFactorWasUpdated, Ticker,
+};
+use liquidation_bot::liquidator::Liquidator;
+use liquidation_bot::types::{CurrencyCode, Exchange, Pair, Token};
+
+use web3::types::{Address, U256};
 
 #[test]
 fn test_position_is_liquidated_after_loss() {
@@ -21,9 +26,23 @@ fn test_position_is_liquidated_after_loss() {
         symbol: CurrencyCode::WETH,
     };
 
-    let tokens: Vec<Token> = vec![dai_token.clone(), weth_token.clone()];
+    let tokens: HashMap<Address, Token> = vec![
+        (dai_token.address, dai_token.clone()),
+        (weth_token.address, weth_token.clone()),
+    ]
+    .into_iter()
+    .collect();
 
-    let mut liquidator = Liquidator::new(tokens);
+    let latest_block = BlockHeader {
+        timestamp: U256::from(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        ),
+    };
+
+    let mut liquidator = Liquidator::new(latest_block, tokens);
 
     let events: Vec<Event> = vec![
         Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
@@ -57,7 +76,7 @@ fn test_position_is_liquidated_after_loss() {
     ];
 
     let liquidations = events.into_iter().fold(vec![], |mut liquidations, event| {
-        let mut new_liquidations = liquidator.run(event);
+        let mut new_liquidations = liquidator.run(&event);
         liquidations.append(&mut new_liquidations);
         liquidations
     });
