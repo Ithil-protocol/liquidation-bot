@@ -31,6 +31,7 @@ pub async fn run(configuration: Configuration) {
     // This feed helps to keep a synchronized clock with the blockchain.
     let ethereum_blocks_feed: feeds::EthereumBlocks =
         feeds::EthereumBlocks::new(&configuration.ethereum_feed_configuration);
+
     let latest_block = ethereum_blocks_feed.get_latest_block().await.unwrap();
 
     let tx_ethereum = tx.clone();
