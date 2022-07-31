@@ -28,7 +28,7 @@ pub async fn run(configuration: Configuration) {
         .collect();
 
     // 0. Get block events from Ethereum network
-    // This feed helps to keep a synched clock with the blockchain.
+    // This feed helps to keep a synchronized clock with the blockchain.
     let ethereum_blocks_feed: feeds::EthereumBlocks =
         feeds::EthereumBlocks::new(&configuration.ethereum_feed_configuration);
     let latest_block = ethereum_blocks_feed.get_latest_block().await.unwrap();
