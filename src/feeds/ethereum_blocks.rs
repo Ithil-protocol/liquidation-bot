@@ -1,5 +1,5 @@
-use web3::futures::{future, StreamExt};
-use web3::types::{BlockHeader, BlockId, BlockNumber};
+use web3::futures::StreamExt;
+use web3::types::{BlockId, BlockNumber};
 
 use crate::events;
 

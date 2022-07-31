@@ -10,6 +10,7 @@ chrono = "*"
 futures = "*"
 futures-util = "*"
 itertools = "*"
+num-bigint = "*"
 serde = { version = "1.0.124", features = ["derive"] }
 serde-aux = "*"
 serde_json = "*"
