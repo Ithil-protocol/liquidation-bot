@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -39,7 +40,13 @@ pub async fn run(configuration: Configuration) {
         ethereum_blocks_feed.run(tx_ethereum).await.unwrap();
     });
 
-    let mut liquidator = Liquidator::new(latest_block, tokens);
+    let margin_trading_strategy_address = Address::from_str(
+        &configuration
+            .ithil_feed_configuration
+            .margin_trading_strategy_address,
+    )
+    .unwrap();
+    let mut liquidator = Liquidator::new(latest_block, margin_trading_strategy_address, tokens);
 
     // 1. Set up Ithil Ethereum events feed from Ithil smart contract.
     //    This feed should be used to keep track of open positions and their state.

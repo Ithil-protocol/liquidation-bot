@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use web3::ethabi::Address;
+use web3::types::U256;
 
 #[derive(Debug)]
 pub enum Exchange {
@@ -45,4 +46,7 @@ pub struct Token {
 }
 
 #[derive(Debug)]
-pub struct Liquidation {}
+pub struct Liquidation {
+    pub strategy: Address,
+    pub position_id: U256,
+}

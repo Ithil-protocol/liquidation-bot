@@ -30,16 +30,22 @@ pub struct Liquidator {
     open_positions: HashMap<U256, Position>,
     prices: HashMap<Pair, f64>,
     risk_factors: HashMap<CurrencyCode, web3::types::U256>,
+    strategy_address: Address,
     tokens: HashMap<Address, Token>,
 }
 
 impl Liquidator {
-    pub fn new(latest_block: BlockHeader, tokens: HashMap<Address, Token>) -> Self {
+    pub fn new(
+        latest_block: BlockHeader,
+        strategy_address: Address,
+        tokens: HashMap<Address, Token>,
+    ) -> Self {
         Liquidator {
-            latest_block: latest_block,
+            latest_block,
             open_positions: HashMap::new(),
             prices: HashMap::new(),
             risk_factors: HashMap::new(),
+            strategy_address,
             tokens,
         }
     }
@@ -121,9 +127,25 @@ impl Liquidator {
     fn on_price_ticker(&mut self, ticker: &Ticker) -> Vec<Liquidation> {
         self.prices.insert(ticker.pair.clone(), ticker.price);
 
-        // self.open_positions.iter().filter(|(id, position)| Pair(position.held_token, position.owed_token) == ticker.pair).collect();
+        // XXX we assume pairs have the form BTC-USD
+        // We assume all pairs are relative to USD
+        let token = self
+            .tokens
+            .iter()
+            .find(|(_, token)| token.symbol == ticker.pair.0)
+            .unwrap()
+            .0
+            .clone();
 
-        return vec![];
+        self.open_positions
+            .iter()
+            .filter(|(_, position)| position.held_token == token || position.owed_token == token)
+            .filter(|(_, position)| self.compute_liquidation_score(&position) > BigInt::from(0))
+            .map(|(id, _)| Liquidation {
+                strategy: self.strategy_address,
+                position_id: id.clone(),
+            })
+            .collect()
     }
 
     fn compute_pair_risk_factor(&self, token0: &CurrencyCode, token1: &CurrencyCode) -> U256 {
