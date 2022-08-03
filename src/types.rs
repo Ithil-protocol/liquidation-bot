@@ -40,6 +40,7 @@ pub struct Pair(pub CurrencyCode, pub CurrencyCode);
 pub struct Token {
     pub name: String,
     pub address: Address,
+    pub decimals: i32,
     pub symbol: CurrencyCode,
 }
 
