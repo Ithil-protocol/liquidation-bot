@@ -11,11 +11,10 @@ pub enum Exchange {
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum CurrencyCode {
-    BTC,
     DAI,
-    ETH,
     USD,
     USDC,
+    WBTC,
     WETH,
 }
 
@@ -24,12 +23,11 @@ impl FromStr for CurrencyCode {
 
     fn from_str(input: &str) -> Result<CurrencyCode, Self::Err> {
         match input {
-            "BTC" => Ok(CurrencyCode::BTC),
             "DAI" => Ok(CurrencyCode::DAI),
-            "ETH" => Ok(CurrencyCode::ETH),
             "USD" => Ok(CurrencyCode::USD),
             "USDC" => Ok(CurrencyCode::USDC),
-            "WETH" => Ok(CurrencyCode::WETH),
+            "WBTC" => Ok(CurrencyCode::WBTC),
+            "ETH" => Ok(CurrencyCode::WETH), // XXX Coinbase is very slow/buggy with WETH, so here we use ETH as a proxy for WETH prices.
             _ => Err(()),
         }
     }

@@ -127,7 +127,7 @@ impl Liquidator {
     fn on_price_ticker(&mut self, ticker: &Ticker) -> Vec<Liquidation> {
         self.prices.insert(ticker.pair.clone(), ticker.price);
 
-        // XXX we assume pairs have the form BTC-USD
+        // XXX we assume pairs have the form WBTC-USD
         // We assume all pairs are relative to USD
         let token = self
             .tokens

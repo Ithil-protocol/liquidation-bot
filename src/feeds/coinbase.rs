@@ -74,11 +74,11 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
         channels: vec![
             Channel {
                 name: String::from("heartbeat"),
-                product_ids: vec![String::from("ETH-USD"), String::from("BTC-USD")],
+                product_ids: vec![String::from("ETH-USD"), String::from("DAI-USD")],
             },
             Channel {
                 name: String::from("ticker"),
-                product_ids: vec![String::from("ETH-USD"), String::from("BTC-USD")],
+                product_ids: vec![String::from("ETH-USD"), String::from("DAI-USD")],
             },
         ],
     };
