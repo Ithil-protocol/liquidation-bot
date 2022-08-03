@@ -152,7 +152,7 @@ impl Liquidator {
         (self.risk_factors[token0] + self.risk_factors[token1]) / 2
     }
 
-    fn quote(&self, src: &Token, dst: &Token, amount: U256) -> U256 {
+    fn quote(&self, _src: &Token, _dst: &Token, _amount: U256) -> U256 {
         // TODO to implement
 
         U256::from(42)

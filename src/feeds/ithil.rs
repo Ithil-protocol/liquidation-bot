@@ -1,9 +1,8 @@
 use std::str::FromStr;
-use std::time;
 
 use web3::ethabi::{EventParam, LogParam, ParamType, RawLog};
 use web3::futures::StreamExt;
-use web3::types::{BlockNumber, Filter, FilterBuilder, Log, H160, H256, U64};
+use web3::types::{BlockNumber, FilterBuilder, Log, H160, H256, U64};
 
 use crate::events;
 use events::{PositionWasClosed, PositionWasLiquidated, PositionWasOpened, RiskFactorWasUpdated};
@@ -294,14 +293,7 @@ impl Ithil {
             .create_logs_filter(self.events_filter.clone())
             .await?;
 
-        println!("Polling ...");
-
         let logs = logs_filter.logs().await?;
-
-        // logs_filter.stream(time::Duration::from_secs(1)).take(4).for_each(|msg| {
-        //     println!("msg -> {:?}", msg);
-        //     futures_util::future::ready(())
-        // }).await;
 
         println!("Got logs => {:?}", logs);
 
@@ -317,7 +309,7 @@ impl Ithil {
         &self,
         events_queue: tokio::sync::mpsc::Sender<events::Event>,
     ) -> web3::Result {
-        let mut sub = self
+        let sub = self
             .web3
             .eth_subscribe()
             .subscribe_logs(self.events_filter.clone())
@@ -325,21 +317,17 @@ impl Ithil {
 
         println!("Got subscription id {:?}", sub.id());
 
-        (&mut sub)
-            .take(6)
-            .for_each(|msg| async {
-                if msg.is_ok() {
-                    let log = msg.unwrap();
-                    println!("{:?}", log);
-                    let parsed_event = self.parse_event(&log);
-                    if let Some(event) = parsed_event {
-                        let _ = events_queue.send(event);
-                    }
+        sub.for_each(|msg| async {
+            if msg.is_ok() {
+                let log = msg.unwrap();
+                println!("{:?}", log);
+                let parsed_event = self.parse_event(&log);
+                if let Some(event) = parsed_event {
+                    let _ = events_queue.send(event);
                 }
-            })
-            .await;
-
-        sub.unsubscribe().await?;
+            }
+        })
+        .await;
 
         Ok(())
     }

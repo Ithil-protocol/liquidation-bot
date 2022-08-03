@@ -91,9 +91,9 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
         panic!("Error subscribing to Coinbase ws channels: {}", result);
     }
     let subscribe_response = ws_read.next().await.unwrap();
-    let res = match subscribe_response {
+    let _res = match subscribe_response {
         Ok(protocol::Message::Text(payload)) => {
-            let response: serde_json::Value = serde_json::from_str(&payload).unwrap();
+            let _response: serde_json::Value = serde_json::from_str(&payload).unwrap();
             // TODO parse coinbase subscribe response
             Ok(())
         }
