@@ -1,6 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use num_bigint::BigInt;
+use num_traits::FromPrimitive;
 use web3::types::{Address, U256};
 
 use crate::events;
@@ -140,7 +141,12 @@ impl Liquidator {
         self.open_positions
             .iter()
             .filter(|(_, position)| position.held_token == token || position.owed_token == token)
-            .filter(|(_, position)| self.compute_liquidation_score(&position) > BigInt::from(0))
+            .filter(
+                |(_, position)| match self.compute_liquidation_score(position) {
+                    Some(liquidation_score) => liquidation_score > BigInt::from(0),
+                    None => false,
+                },
+            )
             .map(|(id, _)| Liquidation {
                 strategy: self.strategy_address,
                 position_id: id.clone(),
@@ -152,13 +158,38 @@ impl Liquidator {
         (self.risk_factors[token0] + self.risk_factors[token1]) / 2
     }
 
-    fn quote(&self, _src: &Token, _dst: &Token, _amount: U256) -> U256 {
-        // TODO to implement
+    fn quote(&self, src: &Token, dst: &Token, amount: U256) -> Option<U256> {
+        // Returns amount * src_price * 10^(dst_decimals) / (dst_price * 10^(src_decimals))
+        // if all prices are present, None otherwise.
+        // We also convert prices from f64 to U256 so this computation is not exact.
+        let src_token_to_usd = Pair(src.symbol.clone(), CurrencyCode::USD);
+        let dst_token_to_usd = Pair(dst.symbol.clone(), CurrencyCode::USD);
 
-        U256::from(42)
+        let maybe_src_price = self.prices.get(&src_token_to_usd);
+        let maybe_dst_price = self.prices.get(&dst_token_to_usd);
+
+        match (maybe_src_price, maybe_dst_price) {
+            (Some(src_price), Some(dst_price)) => {
+                let result = amount
+                    * U256::from_str(
+                        &BigInt::from_f64(src_price * 10_f64.powf(dst.decimals as f64))
+                            .unwrap()
+                            .to_string(),
+                    )
+                    .unwrap()
+                    / U256::from_str(
+                        &BigInt::from_f64(dst_price * 10_f64.powf(src.decimals as f64))
+                            .unwrap()
+                            .to_string(),
+                    )
+                    .unwrap();
+                Some(result)
+            }
+            _ => None,
+        }
     }
 
-    fn compute_liquidation_score(&self, position: &Position) -> BigInt {
+    fn compute_liquidation_score(&self, position: &Position) -> Option<BigInt> {
         const VAULT_RESOLUTION: u32 = 10000;
         const VAULT_TIME_FEE_PERIOD: u32 = 86400;
 
@@ -185,22 +216,23 @@ impl Liquidator {
         let held_token = self.tokens.get(&position.held_token).unwrap();
         let owed_token = self.tokens.get(&position.owed_token).unwrap();
 
-        let pl = match collateral_in_owed_token {
-            true => {
-                let expected_tokens = self.quote(held_token, owed_token, position.allowance);
-
-                BigInt::from_str(&expected_tokens.to_string()).unwrap()
-                    - (BigInt::from_str(&(position.principal + due_fees).to_string())).unwrap()
-            }
-            false => {
-                let expected_tokens =
-                    self.quote(owed_token, held_token, position.principal + due_fees);
-                BigInt::from_str(&position.allowance.to_string()).unwrap()
-                    - BigInt::from_str(&expected_tokens.to_string()).unwrap()
-            }
-        };
-
-        BigInt::from_str(&(position.collateral * pair_risk_factor).to_string()).unwrap()
-            - pl * VAULT_RESOLUTION
+        match collateral_in_owed_token {
+            true => self
+                .quote(held_token, owed_token, position.allowance)
+                .map(|expected_tokens| {
+                    BigInt::from_str(&expected_tokens.to_string()).unwrap()
+                        - (BigInt::from_str(&(position.principal + due_fees).to_string())).unwrap()
+                }),
+            false => self
+                .quote(owed_token, held_token, position.principal + due_fees)
+                .map(|expected_tokens| {
+                    BigInt::from_str(&position.allowance.to_string()).unwrap()
+                        - BigInt::from_str(&expected_tokens.to_string()).unwrap()
+                }),
+        }
+        .map(|pl| {
+            BigInt::from_str(&(position.collateral * pair_risk_factor).to_string()).unwrap()
+                - pl * VAULT_RESOLUTION
+        })
     }
 }
