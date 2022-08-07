@@ -1,6 +1,15 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use secp256k1::SecretKey;
+
+use web3::contract::tokens::Tokenize;
+use web3::contract::Options;
+use web3::ethabi;
+use web3::futures::StreamExt;
+use web3::signing::SecretKeyRef;
+use web3::types::{BlockNumber, FilterBuilder, Log, H160, H256, U64};
+
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -9,13 +18,17 @@ use web3::types::Address;
 use crate::events;
 use crate::feeds;
 use crate::liquidator;
+use crate::types;
 use crate::types::Token;
 use events::Event;
 use liquidator::Liquidator;
+use types::Liquidation;
 
 pub struct Configuration {
+    pub liquidator_address: String,
     pub ethereum_feed_configuration: feeds::ethereum_blocks::Configuration,
     pub ithil_feed_configuration: feeds::ithil::Configuration,
+    pub secret: String,
     pub tokens: Vec<Token>,
 }
 
@@ -79,13 +92,84 @@ pub async fn run(configuration: Configuration) {
         feeds::coinbase::run(tx_coinbase).await;
     });
 
-    // 5. Read all incoming messages from the Ethereum network and price feeds from exchanges,
+    // 5. Set up a thread to execute liquidation commands
+    let (liquidation_tx, liquidation_rx): (Sender<Liquidation>, Receiver<Liquidation>) =
+        mpsc::channel(64);
+    tokio::spawn(async move {
+        liquidate_positions(
+            liquidation_rx,
+            &configuration
+                .ithil_feed_configuration
+                .ethereum_provider_wss_url,
+            &configuration.liquidator_address,
+            &configuration.secret,
+        )
+        .await.unwrap();
+    });
+
+    // 6. Read all incoming messages from the Ethereum network and price feeds from exchanges,
     //    keep an updated view on open positions and real time prices, trigger liquidation logic.
     println!("Listen for events ...");
     while let Some(event) = rx.recv().await {
         println!("{:?}", event);
         let liquidations = liquidator.run(&event);
         println!("{:?}", liquidations);
-        // TODO execute liquidations
+        for liquidation in liquidations {
+            liquidation_tx.send(liquidation).await.unwrap();
+        }
     }
+}
+
+impl Tokenize for Liquidation {
+    fn into_tokens(self) -> Vec<ethabi::Token> {
+        vec![
+            ethabi::Token::Address(self.strategy),
+            ethabi::Token::Int(self.position_id),
+        ]
+    }
+}
+
+async fn liquidate_positions(
+    mut liquidation_rx: Receiver<Liquidation>,
+    ethereum_provider_wss_url: &String,
+    liquidator_address: &String,
+    secret: &String,
+) -> web3::Result {
+    let ws = web3::transports::WebSocket::new(ethereum_provider_wss_url).await?;
+    let web3 = web3::Web3::new(ws.clone());
+
+    let liquidator_contract_address = H160::from_str(&liquidator_address).unwrap();
+    let liquidator_contract = web3::contract::Contract::from_json(
+        web3.eth(),
+        liquidator_contract_address,
+        include_bytes!("../deployed/goerli/abi/Liquidator.json"),
+    )
+    .unwrap();
+
+    while let Some(liquidation) = liquidation_rx.recv().await {
+        println!("LIQUIDATION => {:?}", liquidation);
+        let receipt = liquidator_contract
+            .signed_call_with_confirmations(
+                "liquidateSingle",
+                liquidation,
+                Options {
+                    gas: None,
+                    gas_price: None,
+                    value: None,
+                    nonce: None,
+                    condition: None,
+                    transaction_type: None,
+                    access_list: None,
+                    max_fee_per_gas: None,
+                    max_priority_fee_per_gas: None,
+                },
+                3,
+                SecretKeyRef::new(&SecretKey::from_str(secret).unwrap()),
+            )
+            .await
+            .unwrap();
+        println!("LIQUIDATION RECEIPT => {:?}", receipt);
+    }
+
+    Ok(())
 }

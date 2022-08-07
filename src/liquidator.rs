@@ -1,5 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
+use bigdecimal::BigDecimal;
+use num_bigfloat::BigFloat;
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 use web3::types::{Address, U256};
@@ -35,6 +37,9 @@ pub struct Liquidator {
     tokens: HashMap<Address, Token>,
 }
 
+const VAULT_RESOLUTION: u32 = 10000;
+const VAULT_TIME_FEE_PERIOD: u32 = 86400;
+
 impl Liquidator {
     pub fn new(
         latest_block: BlockHeader,
@@ -52,7 +57,7 @@ impl Liquidator {
     }
 
     pub fn run(&mut self, event: &Event) -> Vec<Liquidation> {
-        println!("Position => {:?}", self.open_positions);
+        println!("Positions => {:?}", self.open_positions);
         match event {
             Event::BlockHeader(block_header) => self.on_block_header(block_header),
             Event::PositionWasClosed(position_was_closed) => {
@@ -154,8 +159,20 @@ impl Liquidator {
             .collect()
     }
 
-    fn compute_pair_risk_factor(&self, token0: &CurrencyCode, token1: &CurrencyCode) -> U256 {
-        (self.risk_factors[token0] + self.risk_factors[token1]) / 2
+    fn compute_pair_risk_factor(
+        &self,
+        token0: &CurrencyCode,
+        token1: &CurrencyCode,
+    ) -> Option<U256> {
+        let maybe_token_0_risk_factor = self.risk_factors.get(token0);
+        let maybe_token_1_risk_factor = self.risk_factors.get(token1);
+
+        match (maybe_token_0_risk_factor, maybe_token_1_risk_factor) {
+            (Some(token_0_risk_factor), Some(token_1_risk_factor)) => {
+                Some((token_0_risk_factor + token_1_risk_factor) / 2)
+            }
+            _ => None,
+        }
     }
 
     fn quote(&self, src: &Token, dst: &Token, amount: U256) -> Option<U256> {
@@ -168,38 +185,75 @@ impl Liquidator {
         let maybe_src_price = self.prices.get(&src_token_to_usd);
         let maybe_dst_price = self.prices.get(&dst_token_to_usd);
 
-        match (maybe_src_price, maybe_dst_price) {
+        println!("maybe_src_price => {:?}", maybe_src_price);
+        println!("maybe_dst_price => {:?}", maybe_dst_price);
+
+        let quote = match (maybe_src_price, maybe_dst_price) {
             (Some(src_price), Some(dst_price)) => {
-                let result = amount
-                    * U256::from_str(
-                        &BigInt::from_f64(src_price * 10_f64.powf(dst.decimals as f64))
-                            .unwrap()
-                            .to_string(),
-                    )
-                    .unwrap()
-                    / U256::from_str(
-                        &BigInt::from_f64(dst_price * 10_f64.powf(src.decimals as f64))
-                            .unwrap()
-                            .to_string(),
-                    )
-                    .unwrap();
-                Some(result)
+                let scaled_src_price_float = BigDecimal::from_str(&src_price.to_string()).unwrap()
+                    * BigDecimal::from_str(&BigInt::from(10).pow(dst.decimals as u32).to_string())
+                        .unwrap();
+                println!(
+                    "scaled_src_price_float => {}",
+                    scaled_src_price_float.to_string()
+                );
+                // TODO convert scaled_src_price_float to hex string before U256
+                let scaled_src_price = U256::from_str(&scaled_src_price_float.to_string()).unwrap();
+                // let scaled_src_price = U256::from_str(
+                //     &BigInt::from_str(&(
+                //         BigFloat::from(*src_price)
+                //             * BigFloat::from(10.0).pow(&BigFloat::from(dst.decimals))).int().to_string()
+                //     )
+                //     .unwrap()
+                //     .to_string(),
+                // )
+                // .unwrap();
+                println!("scaled_src_price => {:?}", scaled_src_price);
+
+                let scaled_dst_price = U256::from_str(
+                    &BigInt::from_f64(dst_price * 10_f64.powf(src.decimals as f64))
+                        .unwrap()
+                        .to_string(),
+                )
+                .unwrap();
+
+                println!("scaled_src_price => {:?}", scaled_src_price);
+                println!("scaled_dst_price => {:?}", scaled_dst_price);
+
+                let raw_rate = src_price / dst_price;
+                let scaled_raw_rate = raw_rate * VAULT_RESOLUTION as f64;
+                println!("raw_rate: {}", raw_rate);
+                let rate = if src.decimals == dst.decimals {
+                    U256::from(scaled_raw_rate as u64)
+                } else {
+                    U256::from((scaled_raw_rate as u64).pow((src.decimals - dst.decimals) as u32))
+                };
+
+                println!("amount: {}; rate: {}", amount, rate);
+
+                Some(amount * rate / VAULT_RESOLUTION)
+
+                // Some(amount * scaled_src_price / scaled_dst_price)
             }
             _ => None,
-        }
+        };
+
+        println!("Quote => {:?}", quote);
+
+        quote
     }
 
     fn compute_liquidation_score(&self, position: &Position) -> Option<BigInt> {
-        const VAULT_RESOLUTION: u32 = 10000;
-        const VAULT_TIME_FEE_PERIOD: u32 = 86400;
-
-        let collateral_in_owed_token = position.collateral_token == position.held_token;
+        let collateral_in_owed_token = position.collateral_token != position.held_token;
 
         let held_token = self.tokens.get(&position.held_token).unwrap();
         let owed_token = self.tokens.get(&position.owed_token).unwrap();
 
         let pair_risk_factor =
-            self.compute_pair_risk_factor(&held_token.symbol, &owed_token.symbol);
+            match self.compute_pair_risk_factor(&held_token.symbol, &owed_token.symbol) {
+                Some(pair_risk_factor) => pair_risk_factor,
+                None => return None,
+            };
 
         // let position_fees = position.principal * fixedFees;
         // XXX use fake hardcoded value while we wait for this data to be added to token
@@ -208,10 +262,10 @@ impl Liquidator {
 
         // XXX field position.fees should be ranamed to position.interest_rate
         let due_fees = position_fees
-            * (position.fees
+            + (position.fees
                 * (self.latest_block.timestamp - position.created_at)
                 * position.principal)
-            / (VAULT_TIME_FEE_PERIOD * VAULT_RESOLUTION);
+                / (VAULT_TIME_FEE_PERIOD * VAULT_RESOLUTION);
 
         let held_token = self.tokens.get(&position.held_token).unwrap();
         let owed_token = self.tokens.get(&position.owed_token).unwrap();
@@ -231,6 +285,7 @@ impl Liquidator {
                 }),
         }
         .map(|pl| {
+            println!("PL => {}", pl);
             BigInt::from_str(&(position.collateral * pair_risk_factor).to_string()).unwrap()
                 - pl * VAULT_RESOLUTION
         })

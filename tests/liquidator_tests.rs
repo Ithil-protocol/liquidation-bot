@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use liquidation_bot::events::{
@@ -9,6 +10,8 @@ use liquidation_bot::types::{CurrencyCode, Exchange, Pair, Token};
 
 use web3::types::{Address, U256};
 
+const MARGIN_TRADING_STRATEGY_ADDRESS: &str = "0x09A37C94DF2b68831F0e56b943A416a00E5FA154";
+
 #[test]
 fn test_position_is_liquidated_after_loss() {
     let dai_token = Token {
@@ -16,6 +19,7 @@ fn test_position_is_liquidated_after_loss() {
         address: "0x4315D935947bf9430152b5e90E0A5675e888Be90"
             .parse()
             .unwrap(),
+        decimals: 18,
         symbol: CurrencyCode::DAI,
     };
     let weth_token = Token {
@@ -23,6 +27,7 @@ fn test_position_is_liquidated_after_loss() {
         address: "0x26CB03b59858dCD2b12F9309de5d1e8269e16F61"
             .parse()
             .unwrap(),
+        decimals: 18,
         symbol: CurrencyCode::WETH,
     };
 
@@ -42,17 +47,28 @@ fn test_position_is_liquidated_after_loss() {
         ),
     };
 
-    let mut liquidator = Liquidator::new(latest_block, tokens);
+    let margin_trading_strategy_address =
+        Address::from_str(MARGIN_TRADING_STRATEGY_ADDRESS).unwrap();
+    let mut liquidator = Liquidator::new(latest_block, margin_trading_strategy_address, tokens);
 
     let events: Vec<Event> = vec![
         Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
             token: weth_token.address.clone(),
             new_risk_factor: U256::from(30),
         }),
+        Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
+            token: dai_token.address.clone(),
+            new_risk_factor: U256::from(10),
+        }),
         Event::Ticker(Ticker {
             exchange: Exchange::Coinbase,
-            pair: Pair(CurrencyCode::WETH, CurrencyCode::USDC),
+            pair: Pair(CurrencyCode::WETH, CurrencyCode::USD),
             price: 1000.0,
+        }),
+        Event::Ticker(Ticker {
+            exchange: Exchange::Coinbase,
+            pair: Pair(CurrencyCode::DAI, CurrencyCode::USD),
+            price: 1.0,
         }),
         Event::PositionWasOpened(PositionWasOpened {
             id: U256::from(1),
@@ -63,15 +79,15 @@ fn test_position_is_liquidated_after_loss() {
             held_token: weth_token.address.clone(),
             collateral_token: dai_token.address.clone(),
             collateral: U256::from(1000),
-            principal: U256::from(9000), // XXX convert principal to weth currency amount.
-            allowance: U256::from(9000), // XXX same as above.
+            principal: U256::from(9000),
+            allowance: U256::from(10),
             fees: U256::from(0),
             created_at: U256::from(1024), // Random block number.
         }),
         Event::Ticker(Ticker {
             exchange: Exchange::Coinbase,
-            pair: Pair(CurrencyCode::WETH, CurrencyCode::USDC),
-            price: 500.0, // XXX price goes down 50% !!! Need to check price direction here.
+            pair: Pair(CurrencyCode::WETH, CurrencyCode::USD),
+            price: 900.0,
         }),
     ];
 
@@ -82,6 +98,4 @@ fn test_position_is_liquidated_after_loss() {
     });
 
     assert_eq!(liquidations.len(), 1);
-
-    // TODO add assertions on liquidation data
 }

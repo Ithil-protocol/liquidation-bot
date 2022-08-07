@@ -211,7 +211,7 @@ impl Ithil {
 
         let events_filter = FilterBuilder::default()
             .address(vec![margin_trading_strategy_contract.address()])
-            .from_block(BlockNumber::Number(U64::from(10742373 as i32)))
+            .from_block(BlockNumber::Number(U64::from(7200738 as i32)))
             .to_block(BlockNumber::Latest)
             .topics(
                 Some(vec![
@@ -301,6 +301,8 @@ impl Ithil {
             .into_iter()
             .filter_map(|log| self.parse_event(&log))
             .collect();
+
+        println!("Events => {:?}", events);
 
         Ok(events)
     }
