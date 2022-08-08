@@ -30,10 +30,19 @@ fn test_position_is_liquidated_after_loss() {
         decimals: 18,
         symbol: CurrencyCode::WETH,
     };
+    let wbtc_token = Token {
+        name: "Wrapped Bitcoin".to_string(),
+        address: "0xc9EA4189848A3518B12808D98bFAD92eF48427A7"
+            .parse()
+            .unwrap(),
+        decimals: 8,
+        symbol: CurrencyCode::WBTC,
+    };
 
     let tokens: HashMap<Address, Token> = vec![
         (dai_token.address, dai_token.clone()),
         (weth_token.address, weth_token.clone()),
+        (wbtc_token.address, wbtc_token.clone()),
     ]
     .into_iter()
     .collect();
@@ -54,11 +63,20 @@ fn test_position_is_liquidated_after_loss() {
     let events: Vec<Event> = vec![
         Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
             token: weth_token.address.clone(),
-            new_risk_factor: U256::from(30),
+            new_risk_factor: U256::from(3000),
+        }),
+        Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
+            token: wbtc_token.address.clone(),
+            new_risk_factor: U256::from(2000),
         }),
         Event::RiskFactorWasUpdated(RiskFactorWasUpdated {
             token: dai_token.address.clone(),
-            new_risk_factor: U256::from(10),
+            new_risk_factor: U256::from(1000),
+        }),
+        Event::Ticker(Ticker {
+            exchange: Exchange::Coinbase,
+            pair: Pair(CurrencyCode::WBTC, CurrencyCode::USD),
+            price: 20000.0,
         }),
         Event::Ticker(Ticker {
             exchange: Exchange::Coinbase,
@@ -76,18 +94,21 @@ fn test_position_is_liquidated_after_loss() {
                 .parse()
                 .unwrap(),
             owed_token: dai_token.address.clone(),
-            held_token: weth_token.address.clone(),
+            held_token: wbtc_token.address.clone(),
             collateral_token: dai_token.address.clone(),
-            collateral: U256::from(1000),
-            principal: U256::from(9000),
-            allowance: U256::from(10),
+            collateral: U256::from(100).saturating_mul(U256::from(10).pow(U256::from(18))), // 100 DAI
+            principal: U256::from(900).saturating_mul(U256::from(10).pow(U256::from(18))), // 900 DAI
+            allowance: U256::from(5000000), // 0.05 WBTC
             fees: U256::from(0),
             created_at: U256::from(1024), // Random block number.
         }),
+        // The liquidation price is calculated as follows (ignoring time fees and rounding, therefore it's just an approximation)
+        // liquidationPrice = (principal + collateral*(riskFactor/VaultMath.RESOLUTION) ) * 10^dstDecimals/ (allowance * 10^srcDecimals)
+        // typical RESOLUTION is 10000 but it could change
         Event::Ticker(Ticker {
             exchange: Exchange::Coinbase,
-            pair: Pair(CurrencyCode::WETH, CurrencyCode::USD),
-            price: 900.0,
+            pair: Pair(CurrencyCode::WBTC, CurrencyCode::USD),
+            price: 18300.0,
         }),
     ];
 
@@ -96,6 +117,6 @@ fn test_position_is_liquidated_after_loss() {
         liquidations.append(&mut new_liquidations);
         liquidations
     });
-
+    
     assert_eq!(liquidations.len(), 1);
 }

@@ -190,48 +190,58 @@ impl Liquidator {
 
         let quote = match (maybe_src_price, maybe_dst_price) {
             (Some(src_price), Some(dst_price)) => {
-                let scaled_src_price_float = BigDecimal::from_str(&src_price.to_string()).unwrap()
-                    * BigDecimal::from_str(&BigInt::from(10).pow(dst.decimals as u32).to_string())
-                        .unwrap();
-                println!(
-                    "scaled_src_price_float => {}",
-                    scaled_src_price_float.to_string()
-                );
-                // TODO convert scaled_src_price_float to hex string before U256
-                let scaled_src_price = U256::from_str(&scaled_src_price_float.to_string()).unwrap();
-                // let scaled_src_price = U256::from_str(
-                //     &BigInt::from_str(&(
-                //         BigFloat::from(*src_price)
-                //             * BigFloat::from(10.0).pow(&BigFloat::from(dst.decimals))).int().to_string()
-                //     )
-                //     .unwrap()
-                //     .to_string(),
+                // src_price and dst_price are &f64
+                // float64 can go until 2^1023, while the following one goes maximum until 2^(256 * 3) = 2^768
+                // therefore, no overflow occurs
+                let numerator = (U256::low_u64(&amount) as f64) * src_price * ((10 as i64).pow(dst.decimals as u32) as f64);
+                println!("numerator => {}", numerator);
+                let denominator = dst_price * ((10 as i64).pow(src.decimals as u32) as f64);
+                println!("denominator => {}", denominator);
+                // unfortunately, the maximum precision integer primitive in Rust seems to be i128
+                // we cast to that int to reduce overflows (which can occur for very high numerators and low denominators)
+                Some(U256::from((numerator/denominator) as i128))
+                // let scaled_src_price_float = BigDecimal::from_str(&src_price.to_string()).unwrap()
+                //     * BigDecimal::from_str(&BigInt::from(10).pow(dst.decimals as u32).to_string())
+                //         .unwrap();
+                // println!(
+                //     "scaled_src_price_float => {}",
+                //     scaled_src_price_float.to_string()
+                // );
+                // // TODO convert scaled_src_price_float to hex string before U256
+                // let scaled_src_price = U256::from_str(&scaled_src_price_float.to_string()).unwrap();
+                // // let scaled_src_price = U256::from_str(
+                // //     &BigInt::from_str(&(
+                // //         BigFloat::from(*src_price)
+                // //             * BigFloat::from(10.0).pow(&BigFloat::from(dst.decimals))).int().to_string()
+                // //     )
+                // //     .unwrap()
+                // //     .to_string(),
+                // // )
+                // // .unwrap();
+                // println!("scaled_src_price => {:?}", scaled_src_price);
+
+                // let scaled_dst_price = U256::from_str(
+                //     &BigInt::from_f64(dst_price * 10_f64.powf(src.decimals as f64))
+                //         .unwrap()
+                //         .to_string(),
                 // )
                 // .unwrap();
-                println!("scaled_src_price => {:?}", scaled_src_price);
 
-                let scaled_dst_price = U256::from_str(
-                    &BigInt::from_f64(dst_price * 10_f64.powf(src.decimals as f64))
-                        .unwrap()
-                        .to_string(),
-                )
-                .unwrap();
+                // println!("scaled_src_price => {:?}", scaled_src_price);
+                // println!("scaled_dst_price => {:?}", scaled_dst_price);
 
-                println!("scaled_src_price => {:?}", scaled_src_price);
-                println!("scaled_dst_price => {:?}", scaled_dst_price);
+                // let raw_rate = src_price / dst_price;
+                // let scaled_raw_rate = raw_rate * VAULT_RESOLUTION as f64;
+                // println!("raw_rate: {}", raw_rate);
+                // let rate = if src.decimals == dst.decimals {
+                //     U256::from(scaled_raw_rate as u64)
+                // } else {
+                //     U256::from(scaled_raw_rate as u64).saturating_mul(U256::from(10).pow(U256::from(src.decimals))) / U256::from(10).pow(U256::from(dst.decimals))
+                // };
 
-                let raw_rate = src_price / dst_price;
-                let scaled_raw_rate = raw_rate * VAULT_RESOLUTION as f64;
-                println!("raw_rate: {}", raw_rate);
-                let rate = if src.decimals == dst.decimals {
-                    U256::from(scaled_raw_rate as u64)
-                } else {
-                    U256::from((scaled_raw_rate as u64).pow((src.decimals - dst.decimals) as u32))
-                };
+                // println!("amount: {}; rate: {}", amount, rate);
 
-                println!("amount: {}; rate: {}", amount, rate);
-
-                Some(amount * rate / VAULT_RESOLUTION)
+                // Some(amount * rate / VAULT_RESOLUTION)
 
                 // Some(amount * scaled_src_price / scaled_dst_price)
             }
