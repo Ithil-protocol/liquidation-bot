@@ -103,7 +103,7 @@ fn test_position_is_liquidated_after_loss() {
             created_at: U256::from(1024), // Random block number.
         }),
         // The liquidation price is calculated as follows (ignoring time fees and rounding, therefore it's just an approximation)
-        // liquidationPrice = (principal +- collateral*(riskFactor/VaultMath.RESOLUTION) ) * 10^dstDecimals/ (allowance * 10^srcDecimals)
+        // liquidationPrice = (principal +- collateral*(riskFactor/VaultMath.RESOLUTION) ) * 10^heldDecimals/ (allowance * 10^owedDecimals)
         // in the above, + is for the long case (collateralToken = owedToken) and - for the short case (collateralToken = heldToken)
         // typical RESOLUTION is 10000 but it could change
         Event::Ticker(Ticker {
