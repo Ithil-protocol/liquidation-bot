@@ -95,7 +95,7 @@ pub async fn run(configuration: Configuration) {
 
     // 5. Set up a thread to execute liquidation commands
     let (liquidation_tx, liquidation_rx): (Sender<Liquidation>, Receiver<Liquidation>) =
-        mpsc::channel(64);
+        mpsc::channel(1024);
     tokio::spawn(async move {
         liquidate_positions(
             liquidation_rx,
