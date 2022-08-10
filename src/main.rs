@@ -14,7 +14,7 @@ async fn main() -> std::io::Result<()> {
         liquidation_bot::liquidation_bot::run(config).await;
     });
 
-    // Start local webserver for monitoring
+    // Start local webserver
     HttpServer::new(|| App::new().route("/", web::get().to(|| async { "ok" })))
         .bind(("127.0.0.1", 8080))?
         .run()
