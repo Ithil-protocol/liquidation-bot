@@ -185,18 +185,13 @@ impl Liquidator {
         let maybe_src_price = self.prices.get(&src_token_to_usd);
         let maybe_dst_price = self.prices.get(&dst_token_to_usd);
 
-        println!("maybe_src_price => {:?}", maybe_src_price);
-        println!("maybe_dst_price => {:?}", maybe_dst_price);
-
         let quote = match (maybe_src_price, maybe_dst_price) {
             (Some(src_price), Some(dst_price)) => {
                 // src_price and dst_price are &f64
                 // float64 can go until 2^1023, while the following one goes maximum until 2^(256 * 3) = 2^768
                 // therefore, no overflow occurs
                 let numerator = (U256::low_u64(&amount) as f64) * src_price * ((10 as i64).pow(dst.decimals as u32) as f64);
-                println!("numerator => {}", numerator);
                 let denominator = dst_price * ((10 as i64).pow(src.decimals as u32) as f64);
-                println!("denominator => {}", denominator);
                 // unfortunately, the maximum precision integer primitive in Rust seems to be i128
                 // we cast to that int to reduce overflows (which can occur for very high numerators and low denominators)
                 Some(U256::from((numerator/denominator) as i128))
@@ -248,8 +243,6 @@ impl Liquidator {
             _ => None,
         };
 
-        println!("Quote => {:?}", quote);
-
         quote
     }
 
@@ -295,7 +288,6 @@ impl Liquidator {
                 }),
         }
         .map(|pl| {
-            println!("PL => {}", pl);
             BigInt::from_str(&(position.collateral * pair_risk_factor).to_string()).unwrap()
                 - pl * VAULT_RESOLUTION
         })
