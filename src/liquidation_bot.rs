@@ -3,12 +3,13 @@ use std::str::FromStr;
 
 use secp256k1::SecretKey;
 
+use actix_web::{HttpResponse, get, middleware, rt, web, App, HttpRequest, HttpServer, Responder};
+
 use web3::contract::tokens::Tokenize;
 use web3::contract::Options;
 use web3::ethabi;
-use web3::futures::StreamExt;
 use web3::signing::SecretKeyRef;
-use web3::types::{BlockNumber, FilterBuilder, Log, H160, H256, U64};
+use web3::types::H160;
 
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -113,7 +114,6 @@ pub async fn run(configuration: Configuration) {
     while let Some(event) = rx.recv().await {
         println!("{:?}", event);
         let liquidations = liquidator.run(&event);
-        println!("{:?}", liquidations);
         for liquidation in liquidations {
             liquidation_tx.send(liquidation).await.unwrap();
         }
