@@ -1,5 +1,5 @@
-use actix_web::{web, App, HttpServer};
 use actix_rt;
+use actix_web::{web, App, HttpServer};
 
 use liquidation_bot::utils;
 
@@ -15,11 +15,8 @@ async fn main() -> std::io::Result<()> {
     });
 
     // Start local webserver for monitoring
-    HttpServer::new(|| {
-        App::new()
-            .route("/", web::get().to(|| async { "ok" }))
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+    HttpServer::new(|| App::new().route("/", web::get().to(|| async { "ok" })))
+        .bind(("127.0.0.1", 8080))?
+        .run()
+        .await
 }

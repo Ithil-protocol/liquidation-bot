@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use secp256k1::SecretKey;
 
-use actix_web::{HttpResponse, get, middleware, rt, web, App, HttpRequest, HttpServer, Responder};
+use actix_web::{get, middleware, rt, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 
 use web3::contract::tokens::Tokenize;
 use web3::contract::Options;
@@ -105,7 +105,8 @@ pub async fn run(configuration: Configuration) {
             &configuration.liquidator_address,
             &configuration.secret,
         )
-        .await.unwrap();
+        .await
+        .unwrap();
     });
 
     // 6. Read all incoming messages from the Ethereum network and price feeds from exchanges,

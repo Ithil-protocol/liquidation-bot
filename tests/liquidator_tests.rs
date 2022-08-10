@@ -118,6 +118,6 @@ fn test_position_is_liquidated_after_loss() {
         liquidations.append(&mut new_liquidations);
         liquidations
     });
-    
+
     assert_eq!(liquidations.len(), 1);
 }

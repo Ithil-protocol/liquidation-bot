@@ -154,7 +154,8 @@ impl Liquidator {
             .0
             .clone();
 
-        let liquidations: Vec<Liquidation> = self.open_positions
+        let liquidations: Vec<Liquidation> = self
+            .open_positions
             .iter()
             .filter(|(_, position)| position.status == PositionStatus::Opened)
             .filter(|(_, position)| position.held_token == token || position.owed_token == token)
@@ -175,10 +176,15 @@ impl Liquidator {
         liquidations.iter().for_each(|liquidation| {
             let position = self.open_positions.get(&liquidation.position_id).unwrap();
 
-            self.open_positions.insert(position.id, Position {
-                status: PositionStatus::LiquidationRequested,
-                ..*position
-            }).unwrap();
+            self.open_positions
+                .insert(
+                    position.id,
+                    Position {
+                        status: PositionStatus::LiquidationRequested,
+                        ..*position
+                    },
+                )
+                .unwrap();
         });
 
         liquidations
@@ -215,11 +221,13 @@ impl Liquidator {
                 // src_price and dst_price are &f64
                 // float64 can go until 2^1023, while the following one goes maximum until 2^(256 * 3) = 2^768
                 // therefore, no overflow occurs
-                let numerator = (U256::low_u64(&amount) as f64) * src_price * ((10 as i64).pow(dst.decimals as u32) as f64);
+                let numerator = (U256::low_u64(&amount) as f64)
+                    * src_price
+                    * ((10 as i64).pow(dst.decimals as u32) as f64);
                 let denominator = dst_price * ((10 as i64).pow(src.decimals as u32) as f64);
                 // unfortunately, the maximum precision integer primitive in Rust seems to be i128
                 // we cast to that int to reduce overflows (which can occur for very high numerators and low denominators)
-                Some(U256::from((numerator/denominator) as i128))
+                Some(U256::from((numerator / denominator) as i128))
                 // let scaled_src_price_float = BigDecimal::from_str(&src_price.to_string()).unwrap()
                 //     * BigDecimal::from_str(&BigInt::from(10).pow(dst.decimals as u32).to_string())
                 //         .unwrap();
