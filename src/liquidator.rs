@@ -14,6 +14,14 @@ use events::{
 
 use crate::types::{CurrencyCode, Liquidation, Pair, Token};
 
+#[derive(Debug, PartialEq)]
+pub enum PositionStatus {
+    Opened,
+    Closed,
+    Liquidated,
+    LiquidationRequested,
+}
+
 #[derive(Debug)]
 pub struct Position {
     pub id: U256,
@@ -26,6 +34,8 @@ pub struct Position {
     pub allowance: U256,
     pub fees: U256,
     pub created_at: U256,
+
+    pub status: PositionStatus,
 }
 
 pub struct Liquidator {
@@ -94,6 +104,7 @@ impl Liquidator {
             allowance: position_opened.allowance,
             fees: position_opened.fees,
             created_at: position_opened.created_at,
+            status: PositionStatus::Opened,
         };
 
         self.open_positions.insert(position.id, position);
@@ -143,8 +154,9 @@ impl Liquidator {
             .0
             .clone();
 
-        self.open_positions
+        let liquidations: Vec<Liquidation> = self.open_positions
             .iter()
+            .filter(|(_, position)| position.status == PositionStatus::Opened)
             .filter(|(_, position)| position.held_token == token || position.owed_token == token)
             .filter(
                 |(_, position)| match self.compute_liquidation_score(position) {
@@ -156,7 +168,20 @@ impl Liquidator {
                 strategy: self.strategy_address,
                 position_id: id.clone(),
             })
-            .collect()
+            .collect();
+
+        // Set the position status to liquidation in progress to avoid multiple liquidation
+        // attempts on the same position.
+        liquidations.iter().for_each(|liquidation| {
+            let position = self.open_positions.get(&liquidation.position_id).unwrap();
+
+            self.open_positions.insert(position.id, Position {
+                status: PositionStatus::LiquidationRequested,
+                ..*position
+            }).unwrap();
+        });
+
+        liquidations
     }
 
     fn compute_pair_risk_factor(

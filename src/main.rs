@@ -1,5 +1,5 @@
-use actix_web::{get, web, App, HttpServer, Responder};
-use actix_rt::spawn;
+use actix_web::{web, App, HttpServer};
+use actix_rt;
 
 use liquidation_bot::utils;
 
