@@ -3,8 +3,6 @@ use std::str::FromStr;
 
 use secp256k1::SecretKey;
 
-use actix_web::{get, middleware, rt, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
-
 use web3::contract::tokens::Tokenize;
 use web3::contract::Options;
 use web3::ethabi;

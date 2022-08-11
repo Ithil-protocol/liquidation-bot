@@ -1,9 +1,6 @@
 use std::{collections::HashMap, str::FromStr};
 
-use bigdecimal::BigDecimal;
-use num_bigfloat::BigFloat;
 use num_bigint::BigInt;
-use num_traits::FromPrimitive;
 use web3::types::{Address, U256};
 
 use crate::events;
