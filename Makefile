@@ -1,6 +1,6 @@
 CONTAINER_REGISTRY_URL=eu.gcr.io
-PROJECT_ID=ithil-bots-359309
-SERVICE=goerli-liquidation-bot
+PROJECT_ID=ithil-goerli-bots
+SERVICE=liquidation-bot
 
 .PHONY: build
 build:

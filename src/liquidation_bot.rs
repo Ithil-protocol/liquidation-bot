@@ -111,7 +111,7 @@ pub async fn run(configuration: Configuration) {
     //    keep an updated view on open positions and real time prices, trigger liquidation logic.
     println!("Listen for events ...");
     while let Some(event) = rx.recv().await {
-        println!("{:?}", event);
+        // println!("{:?}", event);
         let liquidations = liquidator.run(&event);
         for liquidation in liquidations {
             liquidation_tx.send(liquidation).await.unwrap();

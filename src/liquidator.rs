@@ -64,7 +64,6 @@ impl Liquidator {
     }
 
     pub fn run(&mut self, event: &Event) -> Vec<Liquidation> {
-        println!("Positions => {:?}", self.open_positions);
         match event {
             Event::BlockHeader(block_header) => self.on_block_header(block_header),
             Event::PositionWasClosed(position_was_closed) => {

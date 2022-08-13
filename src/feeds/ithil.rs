@@ -322,7 +322,6 @@ impl Ithil {
         sub.for_each(|msg| async {
             if msg.is_ok() {
                 let log = msg.unwrap();
-                println!("{:?}", log);
                 let parsed_event = self.parse_event(&log);
                 if let Some(event) = parsed_event {
                     let _ = events_queue.send(event);

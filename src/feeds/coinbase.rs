@@ -111,12 +111,10 @@ pub async fn run(events_queue: tokio::sync::mpsc::Sender<Event>) {
                         match t.as_str() {
                             "heartbeat" => {
                                 let heartbeat: Heartbeat = serde_json::from_str(&payload).unwrap();
-                                println!("HEARTBEAT => {:?}", heartbeat);
                             }
                             "ticker" => {
                                 let coinbase_ticker: Ticker =
                                     serde_json::from_str(&payload).unwrap();
-                                println!("TICKER => {:?}", coinbase_ticker);
                                 let ticker = events::Ticker {
                                     exchange: Exchange::Coinbase,
                                     pair: parse_product_id(&coinbase_ticker.product_id),
